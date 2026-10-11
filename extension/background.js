@@ -77,6 +77,13 @@ async function trackPlaytime(userId) {
   playtime[day][p.universeId] = (playtime[day][p.universeId] || 0) + 1;
   await BB.set('playtime', playtime);
 
+  // Hour-of-week heatmap: minutes per "weekday-hour" (0 = Sunday).
+  const now = new Date();
+  const hours = await BB.get('playHours', {});
+  const hk = `${now.getDay()}-${now.getHours()}`;
+  hours[hk] = (hours[hk] || 0) + 1;
+  await BB.set('playHours', hours);
+
   const games = await BB.get('games', {});
   const name = p.lastLocation || games[p.universeId]?.name || `Game ${p.universeId}`;
   const placeId = p.rootPlaceId || p.placeId || games[p.universeId]?.placeId;
@@ -133,6 +140,8 @@ async function checkTrades() {
       title: `Trade from ${t.user.displayName}`,
       message,
       priority: 1,
+      requireInteraction: true,
+      buttons: [{ title: 'Decline trade' }, { title: 'Open trades' }],
     });
   }
   await BB.set('notifiedTrades', [...seen].slice(-200));
@@ -167,6 +176,22 @@ async function checkFriends(userId) {
     priority: 0,
   });
 }
+
+chrome.notifications.onButtonClicked.addListener(async (id, index) => {
+  const m = id.match(/^trade-(\d+)$/);
+  if (!m) return;
+  chrome.notifications.clear(id);
+  if (index === 1) {
+    chrome.tabs.create({ url: 'https://www.roblox.com/trades' });
+    return;
+  }
+  try {
+    await BB.api(`https://trades.roblox.com/v1/trades/${m[1]}/decline`, { method: 'POST', body: {}, retries: 2 });
+    chrome.notifications.create(`declined-${m[1]}`, { type: 'basic', iconUrl: chrome.runtime.getURL('icons/128.png'), title: 'Trade declined', message: 'Done. It\'s gone from your inbound trades.' });
+  } catch (e) {
+    chrome.notifications.create(`declinefail-${m[1]}`, { type: 'basic', iconUrl: chrome.runtime.getURL('icons/128.png'), title: 'Couldn\'t decline the trade', message: `${e.message}. Open roblox.com/trades to decline it there.` });
+  }
+});
 
 chrome.notifications.onClicked.addListener((id) => {
   openDashboard(id.startsWith('trade') ? 'trades' : 'friends');

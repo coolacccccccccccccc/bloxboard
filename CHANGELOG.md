@@ -1,5 +1,16 @@
 ## Changelog
 
+### 0.3.0 · 11 October 2026
+
+- Quick search: type in Roblox's search box for instant games (with a Play button), limiteds with values, and an exact player match. Arrow keys pick, Enter without a pick still does Roblox's normal search.
+- Trade window: totals under each side and a You give / You get / win-or-loss bar, updating as items change.
+- Lowball warning: asks before you send, counter or accept a trade that loses more than 10% or gets you projected or terrible-demand items.
+- Trade notifications: Decline and Open buttons.
+- Dashboard: new Robux page (in and out, breakdown, spending per month, where it went, latest purchases).
+- Dashboard: avatar sandbox. Try any catalog item on your avatar, see what it costs, save outfits.
+- Playtime: current and longest streak, and a heatmap of when you play.
+- Fix: no more stray "null" text in a few places.
+
 ### 0.2.0 · 11 October 2026
 
 - Game pages: Bloxboard's server list now replaces Roblox's own list and filter bar ("Show Roblox list" brings it back).

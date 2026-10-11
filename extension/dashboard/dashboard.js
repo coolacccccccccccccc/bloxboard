@@ -184,6 +184,7 @@ pages.playtime = async (root) => {
         kpi('Biggest day', best ? duration(best.minutes) : '–', best ? new Date(`${best.day}T12:00:00`).toLocaleDateString() : null),
         kpi('Games played', String(s.top.length))),
       card('Per day', barChart(s.perDay, 900, 260)),
+      el('div', { class: 'grid cols-2' }, await streakCard(), await heatmapCard()),
       card('Games', await topGamesList(s.top, 25)));
   }
   await draw();
@@ -465,8 +466,8 @@ pages.lookup = async (root, arg) => {
       kpi('Followers', followers == null ? '–' : num(followers)),
       kpi('Following', following == null ? '–' : num(following)),
       kpi('Limiteds value', value?.value != null ? num(value.value) : '–', value?.rap != null ? `RAP ${num(value.rap)}` : (value?.privacy_enabled ? 'Inventory private' : null))),
-    user.description ? card('About', el('p', { style: { whiteSpace: 'pre-wrap' }, text: user.description })) : null,
   );
+  if (user.description) body.append(card('About', el('p', { style: { whiteSpace: 'pre-wrap' }, text: user.description })));
 
   const invCard = card('Limiteds', loading('Loading inventory'));
   body.append(invCard);
@@ -497,6 +498,8 @@ pages.settings = async (root) => {
       toggle('regionLookup', 'Server regions', 'Lets "Detect regions" ask Roblox where servers are. Uses ipwho.is for the location.'),
       toggle('replaceServerList', 'Replace Roblox\'s server list', 'Hide Roblox\'s own public server list and filters on game pages; Bloxboard\'s list takes its place.'),
       toggle('homeMostPlayed', 'Most played on the Roblox home page', 'Adds a row with your most played games and your time in each.'),
+      toggle('quickSearch', 'Quick search', 'Instant games, limiteds and players under Roblox\'s search box, with a Play button.'),
+      toggle('tradeWarn', 'Lowball warning', `Asks before you send or accept a trade that loses more than ${s.tradeWarnPct}% value or gets you projected items.`),
       el('p', { class: 'small muted', style: { marginTop: '8px' }, text: s.preferredRegion ? `Preferred region: ${s.preferredRegion}. Change it with the Region filter on any game page.` : 'Pick a region in the Region filter on a game page and it becomes your preferred region everywhere.' })),
     card('Your data',
       el('p', { class: 'muted', text: `${days} day${days === 1 ? '' : 's'} of playtime saved.` }),
@@ -528,6 +531,381 @@ pages.settings = async (root) => {
     const a = el('a', { href: URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })), download: `bloxboard-playtime-${BB.dayKey()}.json` });
     a.click();
   }
+};
+
+
+// ---------- playtime extras ----------
+
+async function streakCard() {
+  const playtime = await BB.get('playtime', {});
+  const played = d => Object.values(playtime[d] || {}).some(m => m > 0);
+  let current = 0;
+  const d = new Date();
+  if (!played(BB.dayKey(d))) d.setDate(d.getDate() - 1); // today not played yet: count up to yesterday
+  while (played(BB.dayKey(d))) { current++; d.setDate(d.getDate() - 1); }
+  const days = Object.keys(playtime).filter(played).sort();
+  let longest = 0;
+  let run = 0;
+  let prev = null;
+  for (const k of days) {
+    const t = new Date(`${k}T12:00:00`);
+    run = prev && Math.round((t - prev) / 86400000) === 1 ? run + 1 : 1;
+    longest = Math.max(longest, run);
+    prev = t;
+  }
+  return card('Streaks', el('div', { class: 'kpis' },
+    kpi('Current streak', `${current} day${current === 1 ? '' : 's'}`),
+    kpi('Longest streak', `${longest} day${longest === 1 ? '' : 's'}`),
+    kpi('Days played', String(days.length), days.length ? `since ${new Date(`${days[0]}T12:00:00`).toLocaleDateString()}` : null)));
+}
+
+async function heatmapCard() {
+  const hours = await BB.get('playHours', {});
+  const max = Math.max(1, ...Object.values(hours));
+  const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  const grid = el('div', { class: 'heat', role: 'img', 'aria-label': 'When you play, by weekday and hour' },
+    el('span'), Array.from({ length: 24 }, (_, h) => el('span', { class: 'heat-h', text: h % 3 === 0 ? String(h) : '' })),
+    order.map((wd, i) => [
+      el('span', { class: 'heat-d', text: DAYS[i] }),
+      Array.from({ length: 24 }, (_, h) => {
+        const m = hours[`${wd}-${h}`] || 0;
+        return el('span', { class: 'heat-c', title: `${DAYS[i]} ${h}:00: ${duration(m)}`, style: { opacity: m ? String(0.18 + 0.82 * (m / max)) : '1', background: m ? 'var(--accent)' : 'var(--sunk)' } });
+      }),
+    ]));
+  const empty = !Object.keys(hours).length;
+  return card('When you play', grid, el('p', { class: 'small muted', style: { marginTop: '8px' }, text: empty ? 'Fills up as you play. Counting started with version 0.3.' : 'Darker = more minutes played in that hour.' }));
+}
+
+// ---------- robux ----------
+
+const TOTAL_LABELS = {
+  salesTotal: 'Sales of your items',
+  affiliateSalesTotal: 'Affiliate sales',
+  groupPayoutsTotal: 'Group payouts',
+  currencyPurchasesTotal: 'Robux bought',
+  premiumStipendsTotal: 'Premium stipend',
+  tradeSystemEarningsTotal: 'Trade earnings',
+  premiumPayoutsTotal: 'Premium payouts (your games)',
+  groupPremiumPayoutsTotal: 'Group premium payouts',
+  adsRevsharePayoutsTotal: 'Ads revenue',
+  purchasesTotal: 'Purchases',
+  tradeSystemCostsTotal: 'Trade costs',
+  adSpendTotal: 'Ad spend',
+  developerExchangeTotal: 'DevEx',
+  individualToGroupTotal: 'Sent to groups',
+};
+const PURCHASE_TYPES = { Asset: 'Item', GamePass: 'Game pass', DeveloperProduct: 'In-game purchase', PrivateServer: 'Private server', Bundle: 'Bundle' };
+
+function monthBars(points, W = 520, H = 230) {
+  const pad = { l: 46, r: 8, t: 10, b: 26 };
+  const max = Math.max(10, ...points.map(p => p.value));
+  const mag = 10 ** Math.floor(Math.log10(max));
+  const step = [1, 2, 2.5, 5, 10].map(f => f * mag).find(st => max / st <= 5) || mag * 10;
+  const top = Math.ceil(max / step) * step;
+  const y = v => pad.t + (H - pad.t - pad.b) * (1 - v / top);
+  const bw = (W - pad.l - pad.r) / points.length;
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('class', 'chart');
+  svg.setAttribute('role', 'img');
+  const add = (tag, attrs, text) => {
+    const n = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+    if (text != null) n.textContent = text;
+    svg.append(n);
+    return n;
+  };
+  for (let v = 0; v <= top; v += step) {
+    add('line', { x1: pad.l, x2: W - pad.r, y1: y(v), y2: y(v), class: 'grid-line' });
+    add('text', { x: pad.l - 6, y: y(v) + 4, 'text-anchor': 'end' }, num(v));
+  }
+  points.forEach((p, i) => {
+    const x = pad.l + i * bw + bw * 0.18;
+    const bar = add('rect', { x, y: y(p.value), width: bw * 0.64, height: Math.max((H - pad.t - pad.b) * (p.value / top), p.value ? 2 : 0), rx: 3, class: `bar${i === points.length - 1 ? ' today' : ''}` });
+    const t = document.createElementNS(ns, 'title');
+    t.textContent = `${p.label}: ${p.value.toLocaleString()} Robux`;
+    bar.append(t);
+    add('text', { x: x + bw * 0.32, y: H - 8, 'text-anchor': 'middle' }, p.short);
+  });
+  return svg;
+}
+
+async function transactions(userId, type, maxPages = 5) {
+  const out = [];
+  let cursor = '';
+  for (let i = 0; i < maxPages; i++) {
+    const page = await api(`https://economy.roblox.com/v2/users/${userId}/transactions?transactionType=${type}&limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+    out.push(...(page.data || []));
+    cursor = page.nextPageCursor;
+    if (!cursor) break;
+    await BB.sleep(300);
+  }
+  return out;
+}
+
+pages.robux = async (root) => {
+  let frame = 'Month';
+  const totalsBox = el('div', { class: 'grid' }, loading('Loading totals'));
+  root.append(pageHead('Robux', 'Where your Robux come from and where they go.',
+    seg([['Day', 'Day'], ['Week', 'Week'], ['Month', 'Month'], ['Year', 'Year']], frame, (v) => { frame = v; drawTotals(); })), totalsBox);
+  const me = await BB.me();
+  const balance = await api(`https://economy.roblox.com/v1/users/${me.id}/currency`).then(r => r.robux).catch(() => null);
+
+  async function drawTotals() {
+    totalsBox.replaceChildren(loading('Loading totals'));
+    try {
+      const t = await api(`https://economy.roblox.com/v2/users/${me.id}/transaction-totals?timeFrame=${frame}&transactionType=summary`);
+      const rows = Object.entries(TOTAL_LABELS).map(([k, label]) => ({ label, value: Math.abs(t[k] || 0), out: ['purchasesTotal', 'tradeSystemCostsTotal', 'adSpendTotal', 'developerExchangeTotal', 'individualToGroupTotal'].includes(k) })).filter(r => r.value);
+      const max = Math.max(1, ...rows.map(r => r.value));
+      const incoming = Math.abs(t.incomingRobuxTotal || 0);
+      const outgoing = Math.abs(t.outgoingRobuxTotal || 0);
+      totalsBox.replaceChildren(
+        el('div', { class: 'kpis' },
+          kpi('Balance', balance == null ? '–' : num(balance)),
+          kpi(`In (${frame.toLowerCase()})`, `+${num(incoming)}`),
+          kpi(`Out (${frame.toLowerCase()})`, `−${num(outgoing)}`),
+          kpi('Net', `${incoming - outgoing >= 0 ? '+' : '−'}${num(Math.abs(incoming - outgoing))}`),
+          kpi('Pending', num(Math.abs(t.pendingRobuxTotal || 0)), 'Sales still on hold')),
+        card(`Breakdown · past ${frame.toLowerCase()}`, rows.length ? el('div', { class: 'list' }, rows.sort((a, b) => b.value - a.value).map(r => el('div', { class: 'item' },
+          el('div', { class: 'grow' },
+            el('div', { class: 'row' }, el('span', { class: 'grow', text: r.label }), el('span', { class: `num ${r.out ? 'bad' : 'good'}`, text: `${r.out ? '−' : '+'}${r.value.toLocaleString()}` })),
+            el('div', { class: 'bar-track' }, el('i', { style: { width: `${Math.max(2, (r.value / max) * 100)}%`, background: r.out ? 'var(--bad)' : 'var(--good)' } })))))) : el('p', { class: 'empty', text: 'No Robux moved in this period.' })));
+    } catch (e) {
+      totalsBox.replaceChildren(errorBox(e));
+    }
+  }
+  await drawTotals();
+
+  const spendBox = el('div', { class: 'grid' }, card('Spending', loading('Loading your purchases (up to 500)')));
+  root.append(el('div', { style: { marginTop: '16px' } }, spendBox));
+  try {
+    const buys = await transactions(me.id, 'Purchase');
+    if (!buys.length) return spendBox.replaceChildren(card('Spending', el('p', { class: 'empty', text: 'No purchases yet.' })));
+    const amount = b => Math.abs(b.currency?.amount || 0);
+
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(1);
+      d.setMonth(d.getMonth() - i);
+      months.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }), short: d.toLocaleDateString(undefined, { month: 'short' }), value: 0 });
+    }
+    const byMonth = new Map(months.map(m => [m.key, m]));
+    const bySeller = new Map();
+    const byType = new Map();
+    for (const b of buys) {
+      const d = new Date(b.created);
+      const m = byMonth.get(`${d.getFullYear()}-${d.getMonth()}`);
+      if (m) m.value += amount(b);
+      const seller = b.details?.place?.name || b.agent?.name || 'Unknown';
+      bySeller.set(seller, (bySeller.get(seller) || 0) + amount(b));
+      const type = PURCHASE_TYPES[b.details?.type] || b.details?.type || 'Other';
+      byType.set(type, (byType.get(type) || 0) + amount(b));
+    }
+    const total = buys.reduce((a, b) => a + amount(b), 0);
+    const ranked = (map, n) => [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, n);
+    const bars = (rows) => {
+      const max = Math.max(1, ...rows.map(r => r[1]));
+      return el('div', { class: 'list' }, rows.map(([label, v]) => el('div', { class: 'item' }, el('div', { class: 'grow' },
+        el('div', { class: 'row' }, el('span', { class: 'grow ellipsis', text: label }), el('span', { class: 'num muted', text: v.toLocaleString() })),
+        el('div', { class: 'bar-track' }, el('i', { style: { width: `${Math.max(2, (v / max) * 100)}%` } }))))));
+    };
+    const itemLink = (b) => {
+      const id = b.details?.id;
+      if (!id) return null;
+      if (b.details.type === 'Asset' || b.details.type === 'Bundle') return `https://www.roblox.com/${b.details.type === 'Bundle' ? 'bundles' : 'catalog'}/${id}`;
+      if (b.details.type === 'GamePass') return `https://www.roblox.com/game-pass/${id}`;
+      return null;
+    };
+
+    spendBox.replaceChildren(
+      el('div', { class: 'kpis' },
+        kpi('Spent (last 500)', num(total), `${buys.length} purchases`),
+        kpi('This month', num(months[11].value)),
+        kpi('Average per month', num(Math.round(months.reduce((a, m) => a + m.value, 0) / 12)), 'past 12 months'),
+        kpi('Biggest purchase', num(Math.max(...buys.map(amount))), buys.reduce((a, b) => (amount(b) > amount(a) ? b : a)).details?.name)),
+      el('div', { class: 'grid cols-2' },
+        card('Spent per month', monthBars(months)),
+        card('By type', bars(ranked(byType, 6)))),
+      el('div', { class: 'grid cols-2' },
+        card('Where it went', bars(ranked(bySeller, 8))),
+        card('Latest purchases', el('div', { class: 'list' }, buys.slice(0, 15).map(b => el('div', { class: 'item' },
+          el('div', { class: 'grow' },
+            itemLink(b) ? el('a', { class: 'item-title ellipsis', style: { display: 'block' }, href: itemLink(b), target: '_blank', text: b.details?.name || 'Purchase' }) : el('div', { class: 'item-title ellipsis', text: b.details?.name || 'Purchase' }),
+            el('div', { class: 'small muted', text: `${PURCHASE_TYPES[b.details?.type] || b.details?.type || ''}${b.details?.place?.name ? ` · ${b.details.place.name}` : ''} · ${new Date(b.created).toLocaleDateString()}` })),
+          el('span', { class: 'num', text: amount(b).toLocaleString() })))))));
+  } catch (e) {
+    spendBox.replaceChildren(card('Spending', errorBox(e)));
+  }
+};
+
+
+// ---------- avatar sandbox ----------
+
+const SINGLE_SLOT = new Set([2, 11, 12, 17, 18, 27, 28, 29, 30, 31]); // t-shirt, shirt, pants, head, face, body parts
+const CATEGORIES = [
+  ['', 'Everything'], ['Accessories', 'All accessories'], ['Accessories|HatAccessories', 'Hats'], ['Accessories|FaceAccessories', 'Face accessories'],
+  ['Clothing|ClassicShirts', 'Classic shirts'], ['Clothing|ClassicPants', 'Classic pants'], ['AvatarAnimations', 'Animations'],
+];
+
+async function renderAvatar(def) {
+  const body = {
+    thumbnailConfig: { thumbnailId: 1, thumbnailType: '2d', size: '420x420' },
+    avatarDefinition: {
+      assets: def.assets.map(a => ({ id: a.id })),
+      bodyColors: def.bodyColors,
+      scales: def.scales,
+      playerAvatarType: { playerAvatarType: def.type },
+    },
+  };
+  for (let i = 0; i < 20; i++) {
+    const r = await api('https://avatar.roblox.com/v1/avatar/render', { method: 'POST', body });
+    if (r?.state === 'Completed' && r.imageUrl) return r.imageUrl;
+    if (r?.state && !['Pending', 'InReview'].includes(r.state)) throw new Error(`Roblox couldn't render this outfit (${r.state}).`);
+    await BB.sleep(1500);
+  }
+  throw new Error('Rendering took too long. Try again.');
+}
+
+async function myAvatar(userId) {
+  const a = await api(`https://avatar.roblox.com/v2/avatar/users/${userId}/avatar`);
+  const c = a.bodyColor3s || {};
+  const hex = v => `#${(v || 'A3A2A5').replace('#', '')}`;
+  return {
+    type: a.playerAvatarType || 'R15',
+    scales: a.scales,
+    bodyColors: {
+      headColor: hex(c.headColor3), torsoColor: hex(c.torsoColor3),
+      leftArmColor: hex(c.leftArmColor3), rightArmColor: hex(c.rightArmColor3),
+      leftLegColor: hex(c.leftLegColor3), rightLegColor: hex(c.rightLegColor3),
+    },
+    assets: (a.assets || []).map(x => ({ id: x.id, name: x.name, type: x.assetType?.id, owned: true })),
+  };
+}
+
+pages.sandbox = async (root) => {
+  root.append(pageHead('Avatar sandbox', 'Try any item on your avatar without buying it. Outfits you save stay in this browser.'));
+  const me = await BB.me();
+  const base = await myAvatar(me.id);
+  let def = structuredClone(base);
+  const prices = new Map();
+
+  const preview = img('sandbox-img', null);
+  const status = el('p', { class: 'small muted', text: 'Rendering…' });
+  const worn = el('div', { class: 'chips' });
+  const cost = el('p', { class: 'small muted' });
+  const saved = el('div', { class: 'list' });
+  const search = el('input', { class: 'input grow', type: 'search', placeholder: 'Search the catalog (e.g. "valkyrie", "black hair")' });
+  const cat = el('select', { class: 'input' }, CATEGORIES.map(([v, t]) => el('option', { value: v, text: t })));
+  const results = el('div', { class: 'catalog-grid' });
+  const more = el('button', { class: 'btn ghost', type: 'button', text: 'More results', hidden: true });
+  let cursor = null;
+  let renderToken = 0;
+
+  async function redraw() {
+    const mine = ++renderToken;
+    status.textContent = 'Rendering…';
+    preview.style.opacity = '.5';
+    try {
+      const url = await renderAvatar(def);
+      if (mine !== renderToken) return;
+      preview.src = url;
+      status.textContent = `${def.assets.length} items on`;
+    } catch (e) {
+      if (mine === renderToken) status.textContent = e.status === 401 ? 'Log in on roblox.com to render.' : e.message;
+    } finally {
+      if (mine === renderToken) preview.style.opacity = '1';
+    }
+    drawWorn();
+  }
+
+  function drawWorn() {
+    worn.replaceChildren(...def.assets.map(a => el('span', { class: `chip${a.owned ? '' : ' accent'}` },
+      el('span', { class: 'ellipsis', text: a.name || `Item ${a.id}` }),
+      el('button', { type: 'button', 'aria-label': `Remove ${a.name}`, text: '×', onclick: () => { def.assets = def.assets.filter(x => x.id !== a.id); redraw(); } }))));
+    const trying = def.assets.filter(a => !a.owned);
+    const total = trying.reduce((sum, a) => sum + (prices.get(a.id) || 0), 0);
+    cost.textContent = trying.length ? `Trying on ${trying.length} item${trying.length === 1 ? '' : 's'} you don't own · about ${total.toLocaleString()} Robux to buy them all` : 'Wearing your own avatar.';
+  }
+
+  function toggle(item) {
+    const has = def.assets.find(a => a.id === item.id);
+    if (has) {
+      def.assets = def.assets.filter(a => a.id !== item.id);
+    } else {
+      if (SINGLE_SLOT.has(item.assetType)) def.assets = def.assets.filter(a => a.type !== item.assetType);
+      def.assets.push({ id: item.id, name: item.name, type: item.assetType, owned: base.assets.some(b => b.id === item.id) });
+    }
+    redraw();
+  }
+
+  async function runSearch(append) {
+    if (!append) {
+      cursor = null;
+      results.replaceChildren(loading('Searching'));
+    }
+    try {
+      const q = new URLSearchParams({ Keyword: search.value.trim(), Limit: '30' });
+      const [category, sub] = cat.value.split('|');
+      if (category) q.set('Category', category);
+      if (sub) q.set('Subcategory', sub);
+      if (cursor) q.set('Cursor', cursor);
+      const page = await api(`https://catalog.roblox.com/v1/search/items/details?${q}`);
+      cursor = page.nextPageCursor;
+      more.hidden = !cursor;
+      const items = (page.data || []).filter(i => i.itemType === 'Asset');
+      for (const i of items) prices.set(i.id, i.lowestPrice ?? i.price ?? 0);
+      const thumbs = await BB.itemThumbs(items.map(i => i.id)).catch(() => new Map());
+      if (!append) results.replaceChildren();
+      results.append(...items.map(i => el('button', { class: 'catalog-item', type: 'button', title: i.name, onclick: () => toggle(i) },
+        img('thumb', thumbs.get(i.id)),
+        el('span', { class: 'ellipsis small', text: i.name }),
+        el('span', { class: 'small muted num', text: i.lowestPrice != null ? `${num(i.lowestPrice)} R$` : i.price != null ? (i.price ? `${num(i.price)} R$` : 'Free') : 'Off sale' }))));
+      if (!results.children.length) results.replaceChildren(el('p', { class: 'empty', text: 'Nothing found.' }));
+    } catch (e) {
+      results.replaceChildren(errorBox(e));
+    }
+  }
+
+  async function drawSaved() {
+    const outfits = await BB.get('sandboxOutfits', []);
+    saved.replaceChildren(...(outfits.length ? outfits.map((o, idx) => el('div', { class: 'item' },
+      el('div', { class: 'grow' }, el('div', { class: 'item-title', text: o.name }), el('div', { class: 'small muted', text: `${o.def.assets.length} items · ${new Date(o.at).toLocaleDateString()}` })),
+      el('button', { class: 'btn sm ghost', type: 'button', text: 'Load', onclick: () => { def = structuredClone(o.def); redraw(); } }),
+      el('button', { class: 'btn sm ghost', type: 'button', text: 'Delete', onclick: async () => { outfits.splice(idx, 1); await BB.set('sandboxOutfits', outfits); drawSaved(); } })))
+      : [el('p', { class: 'small muted', text: 'No saved outfits yet.' })]));
+  }
+
+  const nameInput = el('input', { class: 'input grow', placeholder: 'Outfit name', maxlength: '40' });
+  const saveForm = el('form', { class: 'row', onsubmit: async (e) => {
+    e.preventDefault();
+    const outfits = await BB.get('sandboxOutfits', []);
+    outfits.unshift({ name: nameInput.value.trim() || `Outfit ${outfits.length + 1}`, at: Date.now(), def: structuredClone(def) });
+    await BB.set('sandboxOutfits', outfits.slice(0, 50));
+    nameInput.value = '';
+    drawSaved();
+  } }, nameInput, el('button', { class: 'btn', type: 'submit', text: 'Save outfit' }));
+
+  root.append(el('div', { class: 'sandbox' },
+    el('section', { class: 'card sandbox-left' },
+      el('div', { class: 'sandbox-stage' }, preview),
+      status,
+      el('div', { class: 'row wrap', style: { margin: '10px 0' } },
+        el('button', { class: 'btn ghost', type: 'button', text: 'Reset to my avatar', onclick: () => { def = structuredClone(base); redraw(); } }),
+        el('button', { class: 'btn ghost', type: 'button', text: 'Remove everything', onclick: () => { def.assets = []; redraw(); } })),
+      el('h2', { text: 'Wearing', style: { marginTop: '8px' } }), worn, cost,
+      el('h2', { text: 'Saved outfits', style: { marginTop: '16px' } }), saveForm, saved),
+    el('section', { class: 'card' },
+      el('form', { class: 'row wrap', style: { marginBottom: '12px' }, onsubmit: (e) => { e.preventDefault(); runSearch(false); } }, search, cat, el('button', { class: 'btn', type: 'submit', text: 'Search' })),
+      results, more)));
+
+  more.onclick = () => runSearch(true);
+  cat.onchange = () => runSearch(false);
+  drawSaved();
+  redraw();
+  runSearch(false);
 };
 
 // ---------- router ----------

@@ -15,9 +15,10 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [x] Website: download page, install guide, features, changelog, this plan
 - [x] Auto-update feed `updates.xml` + `update_url` in the manifest
 - [x] Decided: website is public
-- [~] Website live at `bloxboard.enesserver.dev` (Caddy site block)
+- [x] Website live at `bloxboard.enesserver.dev` (Caddy site block)
 - [x] Decided: GitHub repo
-- [ ] **You:** create the empty repo on GitHub, then I push to it
+- [x] GitHub repo created (`coolacccccccccccccc/bloxboard`)
+- [ ] **You:** add the deploy key (Settings → Deploy keys, write access) so the server can push
 
 ## 1. v0.1 (tested by you, logged in)
 
@@ -55,7 +56,7 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [x] "Most played" row on roblox.com/home with time played, past week / month / all time
 - [ ] **You:** check where the row lands on the real home page
 - [ ] Playtime label on game cards across roblox.com
-- [ ] Quick search & quick play in the navbar (type a game, press Play)
+- [x] Quick search & quick play in the navbar: games with Play, limiteds with values, exact player match
 - [ ] Random game button with filters (genre, player count, like ratio)
 - [ ] Game page: badge progress (which badges you have and how rare they are)
 - [ ] Favorites manager in the dashboard (sort, search, unfavorite dead games)
@@ -66,12 +67,13 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [x] Trade notifications show the values: you give, you get, win or loss in %
 - [x] Item info card on catalog pages: value, RAP, demand, trend, projected / hyped / rare
 - [x] Trades page in the dashboard with values and win/loss
-- [ ] Values shown inside Roblox's own trade window, updating as you add items (trade calculator)
-- [ ] Decline or cancel a trade straight from the notification
-- [ ] Lowball warning before you accept or send a trade (value and % thresholds you set)
-- [ ] Outbound trade protection: warn before sending a trade you'd lose on
+- [x] Values shown inside Roblox's own trade window, updating as you add items (trade calculator)
+- [ ] **You:** check the trade window totals on a real trade (built against Roblox's class names, tested on a mock page)
+- [x] Decline a trade straight from the notification (Decline / Open buttons)
+- [x] Lowball warning before you accept, send or counter a trade (loss above 10%, or projected / terrible-demand items)
+- [x] Outbound trade protection: same warning before sending
 - [ ] Auto-decline bad inbound trades by your rules (off by default, only declines, never accepts)
-- [ ] Quick limited search in the navbar
+- [x] Quick limited search in the navbar
 - [ ] Advanced item search inside the trade window
 - [ ] Item value graphs (value and RAP history) on the item card
 - [ ] Trade history analytics: profit over time, best and worst trades, chart
@@ -94,18 +96,20 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 ## 6. Niche dashboard
 
 - [x] Recent servers on the dashboard home
-- [ ] Robux page: spending and earnings history from the transactions API, chart per month, top purchases
+- [x] Robux page: in/out per day/week/month/year, breakdown, spending per month, by type, where it went, latest purchases
 - [ ] Group page: group funds and payouts for groups you own
 - [ ] Account page: account age, badges count, collectibles count, "year in Roblox" style summary
-- [ ] Playtime: streaks, hour-of-day heatmap, per-game trends
+- [x] Playtime: current and longest streak, when-you-play heatmap (weekday × hour)
+- [ ] Playtime per-game trends
 - [ ] Notification center: every alert Bloxboard sent, in one list
 - [ ] Customizable Home (pick and order the cards)
 - [ ] Export everything to JSON or CSV
 
 ## 7. Avatar and themes
 
-- [ ] Avatar sandbox: try any item on your avatar without owning it
-- [ ] Save sandbox outfits
+- [x] Avatar sandbox: try any catalog item on your avatar without owning it, with cost of what you don't own
+- [ ] **You:** check the sandbox renders (Roblox's render service needs a login, so it's untested)
+- [x] Save sandbox outfits
 - [ ] Quick equip / unequip in the avatar editor
 - [ ] Advanced body type editor (exact sliders)
 - [ ] Avatar editor look: compact layout, bigger item grid
@@ -146,12 +150,15 @@ Every RoPro feature from ropro.io/features, and where it stands in Bloxboard.
 - [x] Item info card
 - [ ] Preferred location on a world map
 - [ ] Oldest / newest server filters (needs uptime tracking)
-- [ ] Quick search & quick play
-- [ ] Trade value calculator inside the trade window
-- [ ] Item search in trades, quick limited search in the navbar
-- [ ] Auto-decline bad trades, outbound trade protection
-- [ ] Decline/cancel from the trade notification
-- [ ] Avatar sandbox, saved outfits, quick equip, body type editor, editor look
+- [x] Quick search & quick play
+- [x] Trade value calculator inside the trade window
+- [x] Quick limited search in the navbar
+- [ ] Item search inside the trade window
+- [x] Outbound trade protection
+- [ ] Auto-decline bad trades
+- [x] Decline from the trade notification
+- [x] Avatar sandbox and saved outfits
+- [ ] Quick equip, body type editor, editor look
 - [ ] Themes
 - [ ] More mutuals on the friends page
 - [ ] Profile likes, Discord tag, item comments, Trade Board (all run on RoPro's own server; possible later with our sync server)

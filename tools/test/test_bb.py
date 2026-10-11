@@ -31,10 +31,42 @@ HOME_HTML = '''<!doctype html><html><head><title>Home</title></head><body class=
 <div id="content"><div id="HomeContainer"><h1>Home</h1><div class="friends-section"><div class="friend-carousel-container">Friends carousel (mock)</div></div>
 <div class="game-sort">Recommended for you (mock)</div></div></div></body></html>'''
 
+TRADE_HTML = '''<!doctype html><html><head><title>Trades</title></head><body style="background:#fff;font-family:sans-serif">
+<div id="content"><div class="trades-container"><div class="trades-list-detail">
+<div class="trade-list-detail-offer"><h3>Items you will give</h3>
+ <div class="item-card-container"><a href="https://www.roblox.com/catalog/1029025/x">The Classic ROBLOX Fedora</a></div>
+ <div class="item-card-container"><a href="https://www.roblox.com/catalog/20573078/x">Shaggy</a></div></div>
+<div class="trade-list-detail-offer"><h3>Items you will receive</h3>
+ <div class="item-card-container"><a href="https://www.roblox.com/catalog/48545806/x">Rainbow Shaggy</a></div>
+ <div><span>Robux Offered</span> <span>2,500</span></div></div>
+<button class="btn-cta-md" id="accept">Accept</button> <span id="accepted"></span>
+</div></div></div>
+<script>document.getElementById('accept').onclick=()=>{document.getElementById('accepted').textContent='ROBLOX ACCEPT HANDLER RAN'}</script>
+</body></html>'''
+
 def handler(route):
   url = route.request.url
   if url.rstrip('/') == 'https://www.roblox.com/home':
     return route.fulfill(status=200, content_type='text/html', body=HOME_HTML)
+  if url.rstrip('/') == 'https://www.roblox.com/trades':
+    return route.fulfill(status=200, content_type='text/html', body=TRADE_HTML)
+  if 'transaction-totals' in url:
+    return j(route, {'salesTotal': 1200, 'purchasesTotal': -3450, 'currencyPurchasesTotal': 4500, 'premiumStipendsTotal': 1000, 'tradeSystemEarningsTotal': 0, 'pendingRobuxTotal': 300, 'incomingRobuxTotal': 6700, 'outgoingRobuxTotal': 3450, 'groupPayoutsTotal': 0})
+  if '/transactions?' in url:
+    import datetime
+    rows = []
+    names = [('Speed Coil', 'GamePass', 'Doors'), ('500 Gems', 'DeveloperProduct', 'Blox Fruits'), ('Black Hair', 'Asset', None), ('VIP', 'GamePass', 'Adopt Me!'), ('Ice Wings', 'Asset', None)]
+    for i in range(40):
+      n, t, place = names[i % 5]
+      d = datetime.datetime.now() - datetime.timedelta(days=i * 9)
+      rows.append({'id': i, 'created': d.isoformat() + 'Z', 'agent': {'id': 5, 'type': 'User', 'name': place or 'Roblox'}, 'details': {'id': 1000 + i, 'name': n, 'type': t, 'place': {'name': place} if place else None}, 'currency': {'amount': -(50 + (i * 37) % 400), 'type': 'Robux'}})
+    return j(route, {'data': rows, 'nextPageCursor': None})
+  if 'v2/avatar/users' in url:
+    return j(route, {'scales': {'height': 1, 'width': 1, 'head': 1, 'depth': 1, 'proportion': 0, 'bodyType': 0}, 'playerAvatarType': 'R15', 'bodyColor3s': {'headColor3': 'F8D9A0', 'torsoColor3': '0D69AC', 'leftArmColor3': 'F8D9A0', 'rightArmColor3': 'F8D9A0', 'leftLegColor3': '6E99CA', 'rightLegColor3': '6E99CA'}, 'assets': [{'id': 607702162, 'name': 'Roblox Baseball Cap', 'assetType': {'id': 8}}, {'id': 301811432, 'name': 'Oakley Pants', 'assetType': {'id': 12}}]})
+  if 'avatar/render' in url:
+    return j(route, {'state': 'Completed', 'imageUrl': AV.format(c='8a9cff')})
+  if 'catalog.roblox.com/v1/search/items/details' in url:
+    return j(route, {'data': [{'id': 9000 + i, 'itemType': 'Asset', 'assetType': [8, 41, 11, 12, 42, 8][i % 6], 'name': ['Valkyrie Helm', 'Black Hair', 'Hoodie', 'Jeans', 'Shades', 'Crown'][i % 6] + (f' {i}' if i > 5 else ''), 'price': (i * 75) % 500, 'lowestPrice': None} for i in range(12)], 'nextPageCursor': 'x'})
   try:
     body = route.request.post_data_json if route.request.method == 'POST' else None
   except Exception:
@@ -105,6 +137,16 @@ with sync_playwright() as p:
     page.wait_for_timeout(9000)
     print('game panel text:', page.inner_text('#bbx-game')[:500].replace('\n', ' | '))
     page.locator('#bbx-game').screenshot(path=f'{OUT}/game-panel.png')
+    try:
+      inp = page.locator('#navbar-search-input, input.navbar-search-input, #navbar-universal-search input, header input[type="search"]').first
+      print('navbar input:', inp.evaluate('e => e.outerHTML.slice(0, 200)'))
+      inp.click(); inp.type('adopt', delay=60)
+      page.wait_for_selector('#bbx-search:not([hidden]) .bbx-sr', timeout=12000)
+      print('quick search:', page.inner_text('#bbx-search').replace('\n', ' | ')[:400])
+      page.screenshot(path=f'{OUT}/search.png')
+      inp.press('Escape')
+    except Exception as e:
+      print('search problem:', e)
     page.select_option('#bbx-game select[data-key=sort]', 'least')
     page.fill('#bbx-game input[data-key=max]', '30')
     page.select_option('#bbx-game select[data-key=ping]', '100')
@@ -161,7 +203,8 @@ with sync_playwright() as p:
     const recentServers = [
       {gameId: 'f038d614-34b8-4fdf-a97e-2d5289c7567c', placeId: 2753915549, rootPlaceId: 2753915549, universeId: 101, name: 'Blox Fruits', joinedAt: Date.now() - 7200e3, lastSeen: Date.now() - 1800e3, minutes: 84},
       {gameId: '58ec10a5-ceec-4330-8248-9086931590e9', placeId: 920587237, rootPlaceId: 920587237, universeId: 102, name: 'Adopt Me!', joinedAt: Date.now() - 86400e3, lastSeen: Date.now() - 80000e3, minutes: 35}];
-    return chrome.storage.local.set({playtime, games, recentServers, currentGame: {universeId: 101, since: Date.now()}});
+    const playHours = {}; for (let wd = 0; wd < 7; wd++) for (let h = 0; h < 24; h++) { const v = ((h >= 15 && h <= 22) ? 20 : 0) + ((wd === 0 || wd === 6) && h >= 11 ? 25 : 0) + ((wd * 7 + h * 3) % 6); if (v > 3) playHours[`${wd}-${h}`] = v; }
+    return chrome.storage.local.set({playtime, games, recentServers, playHours, currentGame: {universeId: 101, since: Date.now()}});
   }''')
   ctx.route(re.compile(r'https://([a-z]+\.)?(roblox|rolimons)\.com/.*'), handler)
   home = ctx.new_page(); watch(home, 'home')
@@ -180,10 +223,30 @@ with sync_playwright() as p:
     print('home screenshot problem:', e)
   print('\n'.join(x for x in errors if x.startswith('[home]')) or 'no home errors')
 
+  tr = ctx.new_page(); watch(tr, 'trade')
+  tr.goto('https://www.roblox.com/trades')
+  try:
+    tr.wait_for_selector('#bbx-trade-bar', timeout=15000)
+    print('trade bar:', tr.inner_text('#bbx-trade-bar').replace('\n', ' | '))
+    print('trade lines:', [l.replace('\n', ' ') for l in tr.locator('.bbx-trade-line').all_inner_texts()])
+    tr.click('#accept'); tr.wait_for_timeout(500)
+    print('modal shown:', tr.locator('.bbx-modal').count(), '| roblox handler before confirm:', repr(tr.inner_text('#accepted')))
+    tr.screenshot(path=f'{OUT}/trade-modal.png')
+    tr.click('.bbx-modal .bbx-danger'); tr.wait_for_timeout(300)
+    print('roblox handler after confirm:', repr(tr.inner_text('#accepted')))
+  except Exception as e:
+    print('trade problem:', e)
+  tr.screenshot(path=f'{OUT}/trade.png', full_page=True)
+
   dash = ctx.new_page(); watch(dash, 'dash')
-  for route_name in ['home', 'playtime', 'friends', 'trades', 'items', 'lookup/tobi_rbx', 'settings']:
+  for route_name in ['home', 'playtime', 'friends', 'trades', 'robux', 'items', 'sandbox', 'lookup/tobi_rbx', 'settings']:
     dash.goto(f'chrome-extension://{ext_id}/dashboard/dashboard.html#{route_name}')
     dash.wait_for_timeout(2500)
+    if route_name in ('sandbox', 'robux'):
+      dash.wait_for_timeout(2000)
+    if route_name == 'sandbox':
+      dash.click('.catalog-item >> nth=0'); dash.wait_for_timeout(800)
+      print('sandbox wearing:', dash.inner_text('.chips').replace('\n', ' '), '|', dash.inner_text('.sandbox-left p.small'))
     if route_name == 'trades':
       dash.click('.trade-summary >> nth=1'); dash.wait_for_timeout(1500)
     dash.screenshot(path=f'{OUT}/dash-{route_name.split("/")[0]}.png', full_page=True)
