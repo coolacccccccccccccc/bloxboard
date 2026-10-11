@@ -77,7 +77,7 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [ ] Advanced item search inside the trade window
 - [ ] Item value graphs (value and RAP history) on the item card
 - [x] Completed trades: net profit, wins, best and worst trade (at today's values)
-- [ ] Profit-over-time chart
+- [x] Profit-over-time chart (running total of completed trades)
 - [ ] Item value change alerts for items you own
 - [ ] Wishlist with price alerts (resale price drops below your target)
 - [ ] Never auto-accept or auto-send trades (Roblox ToS). Only show, warn and decline
@@ -101,7 +101,7 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [ ] Group page: group funds and payouts for groups you own
 - [ ] Account page: account age, badges count, collectibles count, "year in Roblox" style summary
 - [x] Playtime: current and longest streak, when-you-play heatmap (weekday × hour)
-- [ ] Playtime per-game trends
+- [x] Playtime per-game trends (14-day sparkline per game)
 - [x] Recent alerts on the dashboard home
 - [ ] Customizable Home (pick and order the cards)
 - [x] Export everything to JSON (Settings)
@@ -114,7 +114,8 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [ ] Quick equip / unequip in the avatar editor
 - [ ] Advanced body type editor (exact sliders)
 - [ ] Avatar editor look: compact layout, bigger item grid
-- [ ] Themes for roblox.com (colors, backgrounds), shareable as a code
+- [x] Themes for roblox.com: Midnight, Ocean, Forest, Grape (dark mode) and Sakura (light mode)
+- [ ] Custom theme colors, shareable as a code
 - [ ] Cheapest-copy finder for an outfit
 
 ## 8. Infrastructure on the homelab
@@ -127,7 +128,7 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 ## 9. Quality
 
 - [x] Mock-API test suite for every dashboard page and the home row (`tools/test`)
-- [ ] Logged-in smoke test you can run with your own browser profile
+- [x] Diagnostics in Settings: checks every Roblox service Bloxboard uses, with a Copy button
 - [x] Error log in Settings (last 50 errors, copy button)
 - [ ] Accessibility pass: keyboard-only use, contrast, screen reader labels
 - [ ] Performance: Rolimons values cached, no request storms on roblox.com
@@ -160,7 +161,7 @@ Every RoPro feature from ropro.io/features, and where it stands in Bloxboard.
 - [x] Decline from the trade notification
 - [x] Avatar sandbox and saved outfits
 - [ ] Quick equip, body type editor, editor look
-- [ ] Themes
+- [x] Themes
 - [ ] More mutuals on the friends page
 - [ ] Profile likes, Discord tag, item comments, Trade Board (all run on RoPro's own server; possible later with our sync server)
 

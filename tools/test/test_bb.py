@@ -280,6 +280,10 @@ with sync_playwright() as p:
       dash.click('.seg button >> text=Inbound'); dash.wait_for_timeout(2500)
       dash.click('.trade-summary >> nth=1'); dash.wait_for_timeout(1500)
     dash.screenshot(path=f'{OUT}/dash-{route_name.split("/")[0]}.png', full_page=True)
+    if route_name == 'settings':
+      dash.click('text=Run checks'); dash.wait_for_timeout(9000)
+      print('diagnostics:', [t.replace('\n', ' ') for t in dash.locator('.list .item').all_inner_texts()][-12:])
+      dash.screenshot(path=f'{OUT}/dash-settings.png', full_page=True)
     print('dash', route_name, 'errors on page:', dash.eval_on_selector_all('.error', 'n => n.map(x => x.textContent)'))
   dash.emulate_media(color_scheme='dark')
   dash.goto(f'chrome-extension://{ext_id}/dashboard/dashboard.html#home'); dash.wait_for_timeout(2500)
@@ -287,6 +291,18 @@ with sync_playwright() as p:
   dash.set_viewport_size({'width': 400, 'height': 860})
   dash.goto(f'chrome-extension://{ext_id}/dashboard/dashboard.html#trades'); dash.wait_for_timeout(2500)
   dash.screenshot(path=f'{OUT}/dash-trades-mobile.png', full_page=True)
+  dash.close()
+
+  # theme on a real page
+  ctx.unroute_all()
+  sw.evaluate("() => chrome.storage.local.get('settings').then(o => chrome.storage.local.set({settings: {...(o.settings || {}), theme: 'sakura'}}))")
+  th = ctx.new_page(); watch(th, 'theme')
+  th.goto('https://www.roblox.com/catalog/1365767/Valkyrie-Helm', wait_until='domcontentloaded', timeout=60000)
+  th.wait_for_timeout(6000)
+  th.evaluate("document.getElementById('cookie-banner-wrapper')?.remove()")
+  print('theme style present:', th.evaluate("!!document.getElementById('bbx-theme')"), '| body class:', th.evaluate('document.body.className'))
+  th.screenshot(path=f'{OUT}/theme-sakura.png')
+
   ctx.close()
 
 print('\n'.join(errors) or 'no console errors')

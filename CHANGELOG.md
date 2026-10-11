@@ -1,5 +1,12 @@
 ## Changelog
 
+### 0.6.0 · 11 October 2026
+
+- Themes for roblox.com (Settings): Midnight, Ocean, Forest and Grape for dark mode, Sakura for light mode. Off by default.
+- Settings → Diagnostics: checks every Roblox service Bloxboard uses and lets you copy the result.
+- Trades → Completed: running profit chart.
+- Playtime: a 14-day mini chart next to every game.
+
 ### 0.5.0 · 11 October 2026
 
 - Game pages: new Badges tab with your progress, missing badges first and the easiest on top.

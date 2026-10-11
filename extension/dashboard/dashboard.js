@@ -87,10 +87,33 @@ function barChart(perDay, W = 420, H = 230) {
   return svg;
 }
 
-async function topGamesList(top, limit) {
+function sparkline(values) {
+  const W = 84;
+  const H = 22;
+  const max = Math.max(1, ...values);
+  const step = W / Math.max(1, values.length - 1);
+  const pts = values.map((v, i) => `${(i * step).toFixed(1)},${(H - 2 - (v / max) * (H - 4)).toFixed(1)}`);
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('class', 'spark');
+  svg.setAttribute('aria-hidden', 'true');
+  const area = document.createElementNS(ns, 'polygon');
+  area.setAttribute('points', `0,${H} ${pts.join(' ')} ${W},${H}`);
+  area.setAttribute('class', 'spark-area');
+  const line = document.createElementNS(ns, 'polyline');
+  line.setAttribute('points', pts.join(' '));
+  line.setAttribute('class', 'spark-line');
+  svg.append(area, line);
+  return svg;
+}
+
+async function topGamesList(top, limit, trendDays = 0) {
   if (!top.length) return el('p', { class: 'empty', text: 'No games tracked yet. Play something with your browser open.' });
   const shown = top.slice(0, limit);
   const icons = await BB.gameIcons(shown.map(g => g.universeId)).catch(() => new Map());
+  const playtime = trendDays ? await BB.get('playtime', {}) : null;
+  const days = trendDays ? daysBack(trendDays) : [];
   const max = shown[0].minutes;
   return el('div', { class: 'list' }, shown.map(g => el('div', { class: 'item' },
     img('icon', icons.get(g.universeId)),
@@ -100,6 +123,7 @@ async function topGamesList(top, limit) {
           : el('span', { class: 'item-title ellipsis grow', text: g.name || `Game ${g.universeId}` }),
         el('span', { class: 'num muted', text: duration(g.minutes) })),
       el('div', { class: 'bar-track' }, el('i', { style: { width: `${Math.max(3, (g.minutes / max) * 100)}%` } }))),
+    trendDays ? el('span', { class: 'spark-wrap', title: `Last ${trendDays} days` }, sparkline(days.map(d => playtime[d]?.[g.universeId] || 0))) : null,
     g.placeId && el('a', { class: 'btn sm ghost', href: BB.joinUrl(g.placeId), text: 'Play' }))));
 }
 
@@ -192,7 +216,7 @@ pages.playtime = async (root) => {
         kpi('Games played', String(s.top.length))),
       card('Per day', barChart(s.perDay, 900, 260)),
       el('div', { class: 'grid cols-2' }, await streakCard(), await heatmapCard()),
-      card('Games', await topGamesList(s.top, 25)));
+      card('Games', await topGamesList(s.top, 25, 14)));
   }
   await draw();
 };
@@ -298,7 +322,9 @@ pages.trades = async (root) => {
       // Completed: work out every trade so we can total the profit.
       const summary = el('p', { class: 'small muted', style: { padding: '4px 4px 12px' }, text: `Working out ${rows.length} completed trades…` });
       body.prepend(summary);
-      const diffs = (await BB.pool(rows, 2, r => r.load())).filter(d => typeof d === 'number');
+      const results = await BB.pool(rows, 2, r => r.load());
+      const diffs = results.filter(d => typeof d === 'number');
+      const timeline = data.map((t, i) => ({ at: new Date(t.created), diff: results[i] })).filter(x => typeof x.diff === 'number').sort((a, b) => a.at - b.at);
       if (mine !== token) return;
       const net = diffs.reduce((a, b) => a + b, 0);
       const wins = diffs.filter(d => d > 0).length;
@@ -307,6 +333,7 @@ pages.trades = async (root) => {
         kpi('Wins', `${wins}/${diffs.length}`),
         kpi('Best trade', diffs.length ? `+${num(Math.round(Math.max(0, ...diffs)))}` : '–'),
         kpi('Worst trade', diffs.length ? `−${num(Math.round(Math.abs(Math.min(0, ...diffs))))}` : '–')));
+      if (timeline.length >= 2) body.querySelector('.kpis').after(el('div', { style: { marginBottom: '12px' } }, profitChart(timeline)));
     } catch (e) {
       if (mine === token) body.replaceChildren(errorBox(e));
     }
@@ -428,6 +455,49 @@ pages.items = async (root) => {
   }
 };
 
+function profitChart(timeline) {
+  const W = 900;
+  const H = 200;
+  const pad = { l: 56, r: 12, t: 12, b: 26 };
+  let run = 0;
+  const pts = timeline.map(x => ({ at: x.at, v: (run += x.diff) }));
+  const lo = Math.min(0, ...pts.map(p => p.v));
+  const hi = Math.max(0, ...pts.map(p => p.v));
+  const span = hi - lo || 1;
+  const t0 = pts[0].at.getTime();
+  const t1 = pts[pts.length - 1].at.getTime() || t0 + 1;
+  const x = t => pad.l + (W - pad.l - pad.r) * ((t - t0) / Math.max(1, t1 - t0));
+  const y = v => pad.t + (H - pad.t - pad.b) * (1 - (v - lo) / span);
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('class', 'chart');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', 'Running profit from completed trades');
+  const add = (tag, attrs, text) => {
+    const n = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+    if (text != null) n.textContent = text;
+    svg.append(n);
+    return n;
+  };
+  for (const v of [lo, 0, hi].filter((v, i, a) => a.indexOf(v) === i)) {
+    add('line', { x1: pad.l, x2: W - pad.r, y1: y(v), y2: y(v), class: 'grid-line' });
+    add('text', { x: pad.l - 6, y: y(v) + 4, 'text-anchor': 'end' }, `${v > 0 ? '+' : v < 0 ? '−' : ''}${num(Math.abs(Math.round(v)))}`);
+  }
+  const d = pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.at.getTime()).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
+  add('path', { d, class: 'profit-line', fill: 'none' });
+  pts.forEach((p) => {
+    const c = add('circle', { cx: x(p.at.getTime()), cy: y(p.v), r: 3.5, class: p.v >= 0 ? 'profit-dot' : 'profit-dot neg' });
+    const t = document.createElementNS(ns, 'title');
+    t.textContent = `${p.at.toLocaleDateString()}: ${p.v >= 0 ? '+' : '−'}${num(Math.abs(Math.round(p.v)))} total`;
+    c.append(t);
+  });
+  add('text', { x: pad.l, y: H - 6, 'text-anchor': 'start' }, pts[0].at.toLocaleDateString());
+  add('text', { x: W - pad.r, y: H - 6, 'text-anchor': 'end' }, pts[pts.length - 1].at.toLocaleDateString());
+  return svg;
+}
+
 async function collectibles(userId) {
   const out = [];
   let cursor = '';
@@ -536,6 +606,58 @@ pages.settings = async (root) => {
     } }),
     el('span', { class: 'muted', text: unit }));
 
+  const diagBox = el('div', { class: 'list', style: { marginTop: '8px' } });
+  async function runDiagnostics(e) {
+    e.target.disabled = true;
+    diagBox.replaceChildren();
+    const lines = [];
+    const check = async (name, fn) => {
+      const row = el('div', { class: 'item' }, el('span', { class: 'badge', text: '…' }), el('span', { class: 'grow', text: name }), el('span', { class: 'small muted' }));
+      diagBox.append(row);
+      const t = performance.now();
+      try {
+        const detail = await fn();
+        row.children[0].className = 'badge good';
+        row.children[0].textContent = 'OK';
+        row.children[2].textContent = `${detail ?? ''} · ${Math.round(performance.now() - t)} ms`;
+        lines.push(`OK    ${name}  ${detail ?? ''}`);
+      } catch (err) {
+        row.children[0].className = 'badge bad';
+        row.children[0].textContent = 'Fail';
+        row.children[2].textContent = err.message;
+        lines.push(`FAIL  ${name}  ${err.message}`);
+      }
+    };
+    let me = null;
+    await check('Logged in', async () => { me = await BB.me(); return `@${me.name}`; });
+    if (me) {
+      await check('Robux balance', async () => `${(await api(`https://economy.roblox.com/v1/users/${me.id}/currency`)).robux} R$`);
+      await check('Online status', async () => STATUS[(await BB.presence([me.id])).get(me.id)?.userPresenceType ?? 0]);
+      await check('Friends list', async () => `${(await BB.friendIds(me.id, 200)).length} friends`);
+      await check('Trades', async () => `${(await api('https://trades.roblox.com/v1/trades/Inbound/count')).count} inbound`);
+      await check('Robux history', async () => { await api(`https://economy.roblox.com/v2/users/${me.id}/transaction-totals?timeFrame=Week&transactionType=summary`); return 'reachable'; });
+      await check('Avatar renderer', async () => { const def = await myAvatar(me.id); await renderAvatar(def); return 'rendered'; });
+    }
+    await check('Item values (Rolimons)', async () => `${Object.keys(await BB.values()).length} items`);
+    let server = null;
+    await check('Server list', async () => {
+      const page = await api('https://games.roblox.com/v1/games/920587237/servers/Public?limit=10');
+      server = page.data?.find(x => x.playing < x.maxPlayers);
+      return `${page.data?.length || 0} servers, ${page.data?.reduce((a, x) => a + (x.playerTokens?.length || 0), 0)} player tokens`;
+    });
+    if (server && me) await check('Server region', async () => {
+      const r = await chrome.runtime.sendMessage({ type: 'regions', placeId: '920587237', gameIds: [server.id] });
+      if (r?.error) throw new Error(r.error);
+      const v = r?.[server.id];
+      if (!v?.city) throw new Error(`no address from Roblox (status ${v?.status ?? '?'})`);
+      return `${v.city}, ${v.cc}`;
+    });
+    diagBox.append(el('button', { class: 'btn ghost sm', type: 'button', style: { marginTop: '8px' }, text: 'Copy result', onclick: async (ev) => {
+      try { await navigator.clipboard.writeText(`Bloxboard ${chrome.runtime.getManifest().version} diagnostics\n${lines.join('\n')}`); ev.target.textContent = 'Copied'; } catch { ev.target.textContent = 'Copy failed'; }
+    } }));
+    e.target.disabled = false;
+  }
+
   const errors = await BB.get('errorLog', []);
   const errorText = errors.map(x => `${new Date(x.at).toISOString()}  ${x.where}  ${x.message}${x.page ? `  (${x.page})` : ''}`).join('\n');
   const errorList = el('div', {},
@@ -559,6 +681,10 @@ pages.settings = async (root) => {
       toggle('homeMostPlayed', 'Most played on the Roblox home page', 'Adds a row with your most played games and your time in each.'),
       toggle('quickSearch', 'Quick search', 'Instant games, limiteds and players under Roblox\'s search box, with a Play button.'),
       toggle('gameCardPlaytime', 'Playtime on game cards', 'A small badge with your time played on game cards across roblox.com.'),
+      el('label', { class: 'switch' },
+        el('div', { class: 'grow' }, el('div', { class: 'item-title', text: 'roblox.com theme' }), el('div', { class: 'small muted', text: 'Recolors Roblox\'s background, header and buttons. Dark themes only show when Roblox is in dark mode, Sakura only in light mode.' })),
+        el('select', { class: 'input', onchange: async (e) => { s.theme = e.target.value; await BB.set('settings', s); } },
+          [['', 'Off'], ['midnight', 'Midnight'], ['ocean', 'Ocean'], ['forest', 'Forest'], ['grape', 'Grape'], ['sakura', 'Sakura']].map(([v, t]) => el('option', { value: v, text: t, selected: s.theme === v })))),
       el('p', { class: 'small muted', style: { marginTop: '8px' }, text: s.preferredRegion ? `Preferred region: ${s.preferredRegion}. Change it with the Region filter on any game page.` : 'Pick a region in the Region filter on a game page and it becomes your preferred region everywhere.' })),
     card('Trading',
       toggle('tradeWarn', 'Lowball warning', 'Asks before you send, counter or accept a trade that loses value or gets you projected items.'),
@@ -566,7 +692,12 @@ pages.settings = async (root) => {
       toggle('autoDecline', 'Auto-decline bad trades', 'Declines new inbound trades that lose more than the % below. It only ever declines; it never accepts or sends.'),
       numberSetting('autoDeclinePct', 'Auto-decline when I\'d lose more than', '%')),
     card('Problems',
-      errorList),
+      errorList,
+      el('div', { style: { marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--line)' } },
+        el('div', { class: 'item-title', text: 'Diagnostics' }),
+        el('p', { class: 'small muted', text: 'Checks every Roblox service Bloxboard uses. Run it when something doesn\'t work and send me the result.' }),
+        diagBox,
+        el('button', { class: 'btn', type: 'button', style: { marginTop: '10px' }, text: 'Run checks', onclick: runDiagnostics }))),
     card('Your data',
       el('p', { class: 'muted', text: `${days} day${days === 1 ? '' : 's'} of playtime saved.` }),
       el('div', { class: 'row wrap', style: { marginTop: '12px' } },
