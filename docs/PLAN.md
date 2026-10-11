@@ -12,7 +12,8 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [x] Build script `tools/build.py`: syntax check, signed .crx + .zip, update feed, website
 - [x] Deploy script `tools/deploy.sh`: website to `bloxboard.enesserver.dev` (Caddy CT103, `/var/www/bloxboard`)
 - [x] Test script `tools/test/run.sh`: real Chromium in the Playwright container on CT105, real roblox.com logged out, mocked APIs for the dashboard
-- [x] Website: download page, install guide, features, changelog, this plan
+- [x] Website: download page, install guide, features, changelog, this plan (built, not online yet)
+- [ ] **You:** add the Caddy site for `bloxboard.enesserver.dev` (auto mode blocked me; steps in `README.md`), then run `tools/deploy.sh`
 - [x] Auto-update feed `updates.xml` + `update_url` in the manifest
 - [ ] Decide: GitHub repo (private or public) or keep it local only
 - [ ] Decide: website public, or only on LAN/Tailscale / behind Authentik

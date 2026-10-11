@@ -37,3 +37,29 @@ After editing, click the reload icon on the extension card and refresh roblox.co
 - `extension/content/game.js`: game page panel (stats, server browser, player finder).
 - `extension/content/profile.js`: profile info bar.
 - `extension/dashboard/`: the dashboard tab (hash routes: `#home`, `#playtime`, `#friends`, `#trades`, `#items`, `#lookup/<name>`, `#settings`).
+
+## Website hosting (one-time Caddy setup in CT103)
+
+Not done yet: auto mode blocked the Caddyfile change, so this is a manual step. Same routine as always:
+
+```sh
+pct exec 103 -- cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.before-bloxboard
+pct exec 103 -- sh -c 'cat >> /etc/caddy/Caddyfile' <<'BLOCK'
+
+# Bloxboard: extension website + update feed (deployed from /root/test/bloxboard on the host)
+bloxboard.enesserver.dev {
+	import cloudflare_tls
+	import crowdsec_logging
+	root * /var/www/bloxboard
+	@crx path *.crx
+	header @crx Content-Type application/x-chrome-extension
+	@fresh path /updates.xml /plan.html /
+	header @fresh Cache-Control "no-cache"
+	file_server
+}
+BLOCK
+pct exec 103 -- caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile && pct exec 103 -- systemctl reload caddy
+tools/deploy.sh
+```
+
+Undo: `pct exec 103 -- cp /etc/caddy/Caddyfile.before-bloxboard /etc/caddy/Caddyfile && pct exec 103 -- systemctl reload caddy`
