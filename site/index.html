@@ -44,13 +44,13 @@
 
     <section class="block" id="install">
       <h2>Install in Helium</h2>
-      <p class="sub">Bloxboard isn't on the Chrome Web Store, so it installs in developer mode. It takes about a minute.</p>
+      <p class="sub">Bloxboard isn't on the Chrome Web Store, so Helium needs one setting changed first. It takes about a minute.</p>
       <ol class="steps">
-        <li>Download the <strong>.crx</strong> above.</li>
-        <li>Open <code>helium://extensions</code> and turn on <strong>Developer mode</strong> (top right).</li>
-        <li>Drag the .crx file onto that page and confirm.</li>
-        <li>If it's refused or shows up disabled: unzip the <strong>.zip</strong>, click <strong>Load unpacked</strong> and pick the <code>bloxboard</code> folder.</li>
+        <li>Open <code>helium://flags/#extension-mime-request-handling</code>, set it to <strong>Always prompt for install</strong> and restart Helium.</li>
+        <li>Click <strong>Download .crx</strong> above. Helium asks "Add Bloxboard?": click <strong>Add extension</strong>.</li>
+        <li>Done. Bloxboard now updates itself from this site.</li>
       </ol>
+      <div class="note" style="margin-top:18px"><p><strong>Getting CRX_REQUIRED_PROOF_MISSING, or no flag?</strong> Use the zip instead: download the <strong>.zip</strong>, unzip it somewhere you'll keep it, open <code>helium://extensions</code>, turn on <strong>Developer mode</strong>, click <strong>Load unpacked</strong> and pick the <code>bloxboard</code> folder. To update later, unzip the new zip over the same folder and click the reload icon on the Bloxboard card.</p></div>
       <p class="meta">Then log in on roblox.com and click the Bloxboard icon in the toolbar to open the dashboard.</p>
     </section>
 
