@@ -48,14 +48,14 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [ ] **You:** check that Roblox's own list is hidden and the panel sits in its place
 - [ ] World map view of server regions (pick a region on the map)
 - [ ] Server uptime (oldest/newest): Roblox doesn't expose it. Needs our own "first seen" tracking, best with the sync server (section 8)
-- [ ] Cache regions per server for 10 minutes so re-opening a game doesn't re-ask Roblox
+- [x] Cache regions per server for 10 minutes so re-opening a game doesn't re-ask Roblox
 - [ ] Rate-limit guard for the Roblox API changes of 19 Oct 2026 (central request queue, backoff)
 
 ## 3. Home page and games
 
 - [x] "Most played" row on roblox.com/home with time played, past week / month / all time
 - [ ] **You:** check where the row lands on the real home page
-- [ ] Playtime label on game cards across roblox.com
+- [x] Playtime badge on game cards across roblox.com
 - [x] Quick search & quick play in the navbar: games with Play, limiteds with values, exact player match
 - [ ] Random game button with filters (genre, player count, like ratio)
 - [ ] Game page: badge progress (which badges you have and how rare they are)
@@ -72,7 +72,7 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [x] Decline a trade straight from the notification (Decline / Open buttons)
 - [x] Lowball warning before you accept, send or counter a trade (loss above 10%, or projected / terrible-demand items)
 - [x] Outbound trade protection: same warning before sending
-- [ ] Auto-decline bad inbound trades by your rules (off by default, only declines, never accepts)
+- [x] Auto-decline bad inbound trades by your rule (off by default, only declines, never accepts)
 - [x] Quick limited search in the navbar
 - [ ] Advanced item search inside the trade window
 - [ ] Item value graphs (value and RAP history) on the item card
@@ -87,8 +87,8 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [x] Mutual friends on profiles (count, avatars, names on hover)
 - [x] Last online on profiles (when Roblox still returns it)
 - [ ] More mutuals on the friends page
-- [ ] Your private notes on a player (stored locally)
-- [ ] Friend log: who added or removed you, and when (dashboard)
+- [x] Your private notes on a player (on their profile, shown in Player lookup)
+- [x] Friend log: who added or removed you, and when (checked every 30 minutes)
 - [ ] Friends' online history chart (when your friends are usually on)
 - [ ] Best friends pinned to the top with notifications only for them
 - [ ] Profile likes and Discord tag (RoPro does this with its own server; would need the sync server)
@@ -127,7 +127,7 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 
 - [x] Mock-API test suite for every dashboard page and the home row (`tools/test`)
 - [ ] Logged-in smoke test you can run with your own browser profile
-- [ ] Error reporting page in Settings (last 50 errors, copy button)
+- [x] Error log in Settings (last 50 errors, copy button)
 - [ ] Accessibility pass: keyboard-only use, contrast, screen reader labels
 - [ ] Performance: Rolimons values cached, no request storms on roblox.com
 
@@ -155,7 +155,7 @@ Every RoPro feature from ropro.io/features, and where it stands in Bloxboard.
 - [x] Quick limited search in the navbar
 - [ ] Item search inside the trade window
 - [x] Outbound trade protection
-- [ ] Auto-decline bad trades
+- [x] Auto-decline bad trades
 - [x] Decline from the trade notification
 - [x] Avatar sandbox and saved outfits
 - [ ] Quick equip, body type editor, editor look

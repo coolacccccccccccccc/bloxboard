@@ -49,6 +49,7 @@ var BB = (() => {
       if (!res.ok) {
         const err = new Error(res.status === 401 ? 'Not logged in on roblox.com' : `HTTP ${res.status} from ${new URL(url).hostname}`);
         err.status = res.status;
+        if (res.status !== 401 && res.status !== 404) logError(new URL(url).pathname.slice(0, 80), err);
         throw err;
       }
       return res.status === 204 ? null : res.json();
@@ -86,6 +87,9 @@ var BB = (() => {
     quickSearch: true,
     tradeWarn: true,
     tradeWarnPct: 10,
+    autoDecline: false,
+    autoDeclinePct: 30,
+    gameCardPlaytime: true,
   };
 
   async function get(key, fallback) {
@@ -94,6 +98,17 @@ var BB = (() => {
   }
   const set = (key, value) => chrome.storage.local.set({ [key]: value });
   const settings = async () => ({ ...DEFAULT_SETTINGS, ...(await get('settings', {})) });
+
+  // Last 50 errors, shown in Settings so problems can be reported.
+  async function logError(where, e) {
+    try {
+      const list = await get('errorLog', []);
+      list.unshift({ at: Date.now(), where, message: String(e?.message || e).slice(0, 300), page: typeof location !== 'undefined' ? location.href.slice(0, 120) : '' });
+      await set('errorLog', list.slice(0, 50));
+    } catch {
+      // storage unavailable
+    }
+  }
 
   // ---------- Roblox ----------
 
@@ -324,7 +339,7 @@ var BB = (() => {
   }
 
   return {
-    sleep, chunk, api, pool, get, set, settings, DEFAULT_SETTINGS,
+    sleep, chunk, api, pool, get, set, settings, DEFAULT_SETTINGS, logError,
     me, resolveUser, users, presence, headshots, gameIcons, itemThumbs, universeOf, joinUrl, inviteUrl, friendIds, tradeDetails, sideWorth,
     values, playerValue, itemWorth, DEMAND,
     num, duration, dayKey, ago, topGames, el,

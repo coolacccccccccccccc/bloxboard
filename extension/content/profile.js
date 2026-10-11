@@ -31,6 +31,28 @@
     return theirs.filter(id => set.has(id));
   }
 
+  // Private note about this player, stored only in this browser.
+  async function noteButton() {
+    const notes = await BB.get('notes', {});
+    const btn = el('button', { class: 'bbx-link', type: 'button', text: notes[USER_ID] ? '✎ Your note' : '+ Add note' });
+    const box = el('textarea', { class: 'bbx-input bbx-note', rows: '3', maxlength: '1000', placeholder: 'Only you can see this note. It saves as you type.' });
+    box.value = notes[USER_ID] || '';
+    let t = null;
+    box.oninput = () => {
+      clearTimeout(t);
+      t = setTimeout(async () => {
+        const all = await BB.get('notes', {});
+        if (box.value.trim()) all[USER_ID] = box.value; else delete all[USER_ID];
+        await BB.set('notes', all);
+        btn.textContent = box.value.trim() ? '✎ Your note' : '+ Add note';
+      }, 400);
+    };
+    const wrap = el('div', { class: 'bbx-note-wrap', hidden: !notes[USER_ID] }, box);
+    btn.onclick = () => { wrap.hidden = !wrap.hidden; if (!wrap.hidden) box.focus(); };
+    strip.append(wrap);
+    return btn;
+  }
+
   async function load() {
     const [user, value, pres, seen] = await Promise.all([
       BB.api(`https://users.roblox.com/v1/users/${USER_ID}`).catch(() => null),
@@ -57,6 +79,7 @@
     }
     const mutualSlot = el('span', { class: 'bbx-chip bbx-muted', text: 'Mutual friends…' });
     out.push(mutualSlot);
+    out.push(await noteButton());
     items.replaceChildren(...out);
 
     try {

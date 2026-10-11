@@ -1,5 +1,14 @@
 ## Changelog
 
+### 0.4.0 · 11 October 2026
+
+- Game cards across roblox.com show your time played.
+- Private notes on players: add one on their profile, see it in Player lookup.
+- Friend log: who added or removed you, on the Friends page.
+- Auto-decline (off by default): declines new trades that lose more than your %. It never accepts or sends.
+- Settings: set your own lowball % and auto-decline %, and a Problems card with the last 50 errors to copy.
+- Server regions are remembered for 10 minutes, so Roblox gets asked less.
+
 ### 0.3.0 · 11 October 2026
 
 - Quick search: type in Roblox's search box for instant games (with a Play button), limiteds with values, and an exact player match. Arrow keys pick, Enter without a pick still does Roblox's normal search.

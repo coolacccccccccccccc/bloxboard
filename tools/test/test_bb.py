@@ -48,6 +48,8 @@ def handler(route):
   url = route.request.url
   if url.rstrip('/') == 'https://www.roblox.com/home':
     return route.fulfill(status=200, content_type='text/html', body=HOME_HTML)
+  if url.rstrip('/') == 'https://www.roblox.com/charts':
+    return route.fulfill(status=200, content_type='text/html', body='<!doctype html><body style="font-family:sans-serif"><div style="display:flex;gap:16px">' + ''.join(f'<a href="https://www.roblox.com/games/{pid}/x" style="width:150px;display:block"><div><img src="{AV.format(c="6bd6a5")}" width="150" height="150"></div>{n}</a>' for pid, n in [(2753915549, 'Blox Fruits'), (920587237, 'Adopt Me!'), (606849621, 'Jailbreak')]) + '</div></body>')
   if url.rstrip('/') == 'https://www.roblox.com/trades':
     return route.fulfill(status=200, content_type='text/html', body=TRADE_HTML)
   if 'transaction-totals' in url:
@@ -204,7 +206,11 @@ with sync_playwright() as p:
       {gameId: 'f038d614-34b8-4fdf-a97e-2d5289c7567c', placeId: 2753915549, rootPlaceId: 2753915549, universeId: 101, name: 'Blox Fruits', joinedAt: Date.now() - 7200e3, lastSeen: Date.now() - 1800e3, minutes: 84},
       {gameId: '58ec10a5-ceec-4330-8248-9086931590e9', placeId: 920587237, rootPlaceId: 920587237, universeId: 102, name: 'Adopt Me!', joinedAt: Date.now() - 86400e3, lastSeen: Date.now() - 80000e3, minutes: 35}];
     const playHours = {}; for (let wd = 0; wd < 7; wd++) for (let h = 0; h < 24; h++) { const v = ((h >= 15 && h <= 22) ? 20 : 0) + ((wd === 0 || wd === 6) && h >= 11 ? 25 : 0) + ((wd * 7 + h * 3) % 6); if (v > 3) playHours[`${wd}-${h}`] = v; }
-    return chrome.storage.local.set({playtime, games, recentServers, playHours, currentGame: {universeId: 101, since: Date.now()}});
+    const friendLog = [{at: Date.now() - 3600e3, id: 2005, type: 'added', name: 'Sem', username: 'sem_rbx'}, {at: Date.now() - 86400e3 * 2, id: 2010, type: 'removed', name: 'Milan', username: 'milan_rbx'}];
+    const notes = {2003: 'Fair trader, prefers adds over robux.'};
+    const errorLog = [{at: Date.now() - 600e3, where: '/v1/games/920587237/servers/Public', message: 'HTTP 429 from games.roblox.com', page: 'https://www.roblox.com/games/920587237'}];
+    const autoDeclined = [{at: Date.now() - 7200e3, id: 977, user: 'Bram', give: 120000, get: 41000, pct: -66}];
+    return chrome.storage.local.set({friendLog, notes, errorLog, autoDeclined, playtime, games, recentServers, playHours, currentGame: {universeId: 101, since: Date.now()}});
   }''')
   ctx.route(re.compile(r'https://([a-z]+\.)?(roblox|rolimons)\.com/.*'), handler)
   home = ctx.new_page(); watch(home, 'home')
@@ -222,6 +228,11 @@ with sync_playwright() as p:
   except Exception as e:
     print('home screenshot problem:', e)
   print('\n'.join(x for x in errors if x.startswith('[home]')) or 'no home errors')
+
+  cards = ctx.new_page(); watch(cards, 'cards')
+  cards.goto('https://www.roblox.com/charts'); cards.wait_for_timeout(2500)
+  print('card badges:', cards.locator('.bbx-card-time').all_inner_texts())
+  cards.screenshot(path=f'{OUT}/cards.png')
 
   tr = ctx.new_page(); watch(tr, 'trade')
   tr.goto('https://www.roblox.com/trades')

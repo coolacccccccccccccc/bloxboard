@@ -231,3 +231,11 @@ html.bbx-search-open .navbar-search .dropdown-menu, html.bbx-search-open #navbar
 .bbx-modal h2 { margin: 0 0 6px; font-size: 20px; font-weight: 800; color: var(--bbx-fg); }
 .bbx-modal ul { margin: 10px 0 0; padding-left: 18px; color: var(--bbx-bad); font-weight: 600; }
 .bbx-btn.bbx-danger { background: var(--bbx-bad); }
+
+/* ---------- game card playtime + notes ---------- */
+.bbx-card-time {
+  position: absolute; left: 6px; top: 6px; z-index: 2; padding: 2px 7px; border-radius: 999px;
+  background: rgba(16, 18, 28, .78); color: #fff; font: 700 11px/1.5 system-ui, sans-serif; pointer-events: none;
+}
+.bbx-note-wrap { flex-basis: 100%; }
+.bbx-note { width: 100%; height: auto; padding: 8px 10px; resize: vertical; font: inherit; font-size: 13px; }

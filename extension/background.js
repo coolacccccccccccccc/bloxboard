@@ -62,6 +62,7 @@ async function tick() {
   if (settings.trackPlaytime) await trackPlaytime(me.id).catch(() => {});
   if (settings.notifyTrades && minute % 2 === 0) await checkTrades().catch(() => {});
   if (settings.notifyFriends && minute % 2 === 1) await checkFriends(me.id).catch(() => {});
+  if (minute % 30 === 7) await friendLog(me.id).catch(e => BB.logError('friend log', e));
 }
 
 async function trackPlaytime(userId) {
@@ -130,6 +131,20 @@ async function checkTrades() {
       const get = BB.sideWorth(theirs, values).total;
       const diff = get - give;
       const pct = give ? Math.round((diff / give) * 100) : 0;
+      const settings = await BB.settings();
+      if (settings.autoDecline && give > 0 && pct <= -settings.autoDeclinePct) {
+        await BB.api(`https://trades.roblox.com/v1/trades/${t.id}/decline`, { method: 'POST', body: {}, retries: 2 });
+        const log = await BB.get('autoDeclined', []);
+        log.unshift({ at: Date.now(), id: t.id, user: t.user.displayName, give, get, pct });
+        await BB.set('autoDeclined', log.slice(0, 100));
+        chrome.notifications.create(`autodeclined-${t.id}`, {
+          type: 'basic',
+          iconUrl: chrome.runtime.getURL('icons/128.png'),
+          title: `Auto-declined a trade from ${t.user.displayName}`,
+          message: `You'd give ${BB.num(Math.round(give))} for ${BB.num(Math.round(get))} (${pct}%). Change the rule in Bloxboard settings.`,
+        });
+        continue;
+      }
       message = `You give ${BB.num(Math.round(give))} · you get ${BB.num(Math.round(get))}\n${diff >= 0 ? 'Win' : 'Loss'}: ${diff >= 0 ? '+' : ''}${BB.num(Math.round(diff))} (${pct > 0 ? '+' : ''}${pct}%)`;
     } catch {
       // keep the plain message
@@ -145,6 +160,26 @@ async function checkTrades() {
     });
   }
   await BB.set('notifiedTrades', [...seen].slice(-200));
+}
+
+// Friend log: snapshot friend ids, record who appeared or disappeared.
+async function friendLog(userId) {
+  const ids = await BB.friendIds(userId, 2000);
+  if (!ids.length) return;
+  const prev = await BB.get('friendSnapshot', null);
+  await BB.set('friendSnapshot', ids);
+  if (!prev) return;
+  const before = new Set(prev);
+  const now = new Set(ids);
+  const added = ids.filter(id => !before.has(id));
+  const removed = prev.filter(id => !now.has(id));
+  if (!added.length && !removed.length) return;
+  const names = await BB.users([...added, ...removed]).catch(() => new Map());
+  const log = await BB.get('friendLog', []);
+  const at = Date.now();
+  for (const id of added) log.unshift({ at, id, type: 'added', name: names.get(id)?.displayName, username: names.get(id)?.name });
+  for (const id of removed) log.unshift({ at, id, type: 'removed', name: names.get(id)?.displayName, username: names.get(id)?.name });
+  await BB.set('friendLog', log.slice(0, 300));
 }
 
 async function checkFriends(userId) {
@@ -213,7 +248,18 @@ async function geo(ip) {
   return info;
 }
 
+// Regions per server, remembered for 10 minutes.
+const regionCache = new Map();
+
 async function serverRegion(placeId, gameId) {
+  const hit = regionCache.get(gameId);
+  if (hit && Date.now() - hit.at < 10 * 60 * 1000) return hit.value;
+  const value = await lookupRegion(placeId, gameId);
+  if (value?.city) regionCache.set(gameId, { at: Date.now(), value });
+  return value;
+}
+
+async function lookupRegion(placeId, gameId) {
   const res = await BB.api('https://gamejoin.roblox.com/v1/join-game-instance', {
     method: 'POST',
     retries: 2,

@@ -224,6 +224,13 @@ pages.friends = async (root) => {
 
   const me = await BB.me();
   const all = await loadFriends(me.id);
+  const log = await BB.get('friendLog', []);
+  const changes = card('Friend changes', log.length
+    ? el('div', { class: 'list' }, log.slice(0, 12).map(x => el('div', { class: 'item' },
+      el('span', { class: `badge ${x.type === 'added' ? 'good' : 'bad'}`, text: x.type === 'added' ? 'Added' : 'Removed' }),
+      el('a', { class: 'grow ellipsis item-title', href: profileUrl(x.id), target: '_blank', text: x.name ? `${x.name} (@${x.username})` : `User ${x.id}` }),
+      el('span', { class: 'small muted', text: BB.ago(x.at) }))))
+    : el('p', { class: 'small muted', text: 'Bloxboard checks your friend list every 30 minutes. New friends and unfriends show up here.' }));
   const order = f => [2, 3, 1, 0, 4].indexOf(f.p?.userPresenceType ?? 0);
   all.sort((a, b) => order(a) - order(b) || (a.u?.displayName || '').localeCompare(b.u?.displayName || ''));
 
@@ -240,7 +247,7 @@ pages.friends = async (root) => {
         kpi('Friends', String(all.length)),
         kpi('In a game', String(all.filter(f => f.p?.userPresenceType === 2).length)),
         kpi('Online', String(all.filter(f => [1, 2, 3].includes(f.p?.userPresenceType)).length))),
-      el('div', { class: 'grid cols-2' }, groups.filter(([, g]) => g.length).map(([title, g]) => card(`${title} · ${g.length}`, friendList(g)))));
+      el('div', { class: 'grid cols-2' }, changes, groups.filter(([, g]) => g.length).map(([title, g]) => card(`${title} · ${g.length}`, friendList(g)))));
     if (!list.length) body.append(el('p', { class: 'empty', text: 'No friends match that filter.' }));
   }
   filter.oninput = draw;
@@ -257,6 +264,13 @@ pages.trades = async (root) => {
     el('a', { class: 'btn ghost', href: 'https://www.roblox.com/trades', target: '_blank', text: 'Open on Roblox' })), body);
 
   const [me, values] = await Promise.all([BB.me(), BB.values().catch(() => ({}))]);
+  const declined = await BB.get('autoDeclined', []);
+  if (declined.length) {
+    root.append(el('div', { style: { marginTop: '16px' } }, card(`Auto-declined · ${declined.length}`, el('div', { class: 'list' }, declined.slice(0, 8).map(d => el('div', { class: 'item' },
+      el('span', { class: 'grow', text: `${d.user}: you'd give ${num(Math.round(d.give))} for ${num(Math.round(d.get))}` }),
+      el('span', { class: 'badge bad', text: `${d.pct}%` }),
+      el('span', { class: 'small muted', text: BB.ago(d.at) })))))));
+  }
   let token = 0;
 
   async function draw() {
@@ -468,6 +482,8 @@ pages.lookup = async (root, arg) => {
       kpi('Limiteds value', value?.value != null ? num(value.value) : '–', value?.rap != null ? `RAP ${num(value.rap)}` : (value?.privacy_enabled ? 'Inventory private' : null))),
   );
   if (user.description) body.append(card('About', el('p', { style: { whiteSpace: 'pre-wrap' }, text: user.description })));
+  const note = (await BB.get('notes', {}))[user.id];
+  if (note) body.append(card('Your note', el('p', { style: { whiteSpace: 'pre-wrap' }, text: note }), el('p', { class: 'small muted', style: { marginTop: '6px' }, text: 'Edit it on their Roblox profile.' })));
 
   const invCard = card('Limiteds', loading('Loading inventory'));
   body.append(invCard);
@@ -487,6 +503,25 @@ pages.settings = async (root) => {
     el('input', { type: 'checkbox', checked: s[key], onchange: async (e) => { s[key] = e.target.checked; await BB.set('settings', s); } }),
     el('div', {}, el('div', { class: 'item-title', text: title }), el('div', { class: 'small muted', text: sub })));
 
+  const numberSetting = (key, label, unit) => el('label', { class: 'switch' },
+    el('div', { class: 'grow' }, el('div', { class: 'item-title', text: label })),
+    el('input', { class: 'input', type: 'number', min: '1', max: '100', value: String(s[key]), style: { width: '80px' }, onchange: async (e) => {
+      const v = Math.min(100, Math.max(1, Number(e.target.value) || BB.DEFAULT_SETTINGS[key]));
+      e.target.value = String(v);
+      s[key] = v;
+      await BB.set('settings', s);
+    } }),
+    el('span', { class: 'muted', text: unit }));
+
+  const errors = await BB.get('errorLog', []);
+  const errorText = errors.map(x => `${new Date(x.at).toISOString()}  ${x.where}  ${x.message}${x.page ? `  (${x.page})` : ''}`).join('\n');
+  const errorList = el('div', {},
+    el('p', { class: 'small muted', text: errors.length ? `The last ${errors.length} errors Bloxboard ran into. Copy them when something breaks.` : 'No errors logged. Nice.' }),
+    errors.length ? el('pre', { class: 'errlog', text: errorText }) : null,
+    errors.length ? el('div', { class: 'row', style: { marginTop: '10px' } },
+      el('button', { class: 'btn ghost', type: 'button', text: 'Copy', onclick: async (e) => { try { await navigator.clipboard.writeText(errorText); e.target.textContent = 'Copied'; } catch { e.target.textContent = 'Copy failed'; } } }),
+      el('button', { class: 'btn ghost', type: 'button', text: 'Clear', onclick: async () => { await chrome.storage.local.remove('errorLog'); route(true); } })) : null);
+
   const playtime = await BB.get('playtime', {});
   const days = Object.keys(playtime).length;
 
@@ -499,8 +534,15 @@ pages.settings = async (root) => {
       toggle('replaceServerList', 'Replace Roblox\'s server list', 'Hide Roblox\'s own public server list and filters on game pages; Bloxboard\'s list takes its place.'),
       toggle('homeMostPlayed', 'Most played on the Roblox home page', 'Adds a row with your most played games and your time in each.'),
       toggle('quickSearch', 'Quick search', 'Instant games, limiteds and players under Roblox\'s search box, with a Play button.'),
-      toggle('tradeWarn', 'Lowball warning', `Asks before you send or accept a trade that loses more than ${s.tradeWarnPct}% value or gets you projected items.`),
+      toggle('gameCardPlaytime', 'Playtime on game cards', 'A small badge with your time played on game cards across roblox.com.'),
       el('p', { class: 'small muted', style: { marginTop: '8px' }, text: s.preferredRegion ? `Preferred region: ${s.preferredRegion}. Change it with the Region filter on any game page.` : 'Pick a region in the Region filter on a game page and it becomes your preferred region everywhere.' })),
+    card('Trading',
+      toggle('tradeWarn', 'Lowball warning', 'Asks before you send, counter or accept a trade that loses value or gets you projected items.'),
+      numberSetting('tradeWarnPct', 'Warn when I lose more than', '%'),
+      toggle('autoDecline', 'Auto-decline bad trades', 'Declines new inbound trades that lose more than the % below. It only ever declines; it never accepts or sends.'),
+      numberSetting('autoDeclinePct', 'Auto-decline when I\'d lose more than', '%')),
+    card('Problems',
+      errorList),
     card('Your data',
       el('p', { class: 'muted', text: `${days} day${days === 1 ? '' : 's'} of playtime saved.` }),
       el('div', { class: 'row wrap', style: { marginTop: '12px' } },
