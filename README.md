@@ -23,6 +23,7 @@ python3 tools/build.py --bump   # new version
 tools/test/run.sh               # browser test + screenshots
 tools/deploy.sh                 # website + update feed
 git commit -am "Release x.y.z"
+git push                        # GitHub: coolacccccccccccccc/bloxboard via deploy key (~/.ssh/bloxboard_deploy, host alias github-bloxboard)
 ```
 
 ## Developing
@@ -35,8 +36,14 @@ After editing, click the reload icon on the extension card and refresh roblox.co
 - `extension/lib.js`: shared helpers (`BB.api` with CSRF + backoff, Roblox lookups, Rolimons values, formatting, `BB.el` DOM builder). Loaded by everything.
 - `extension/background.js`: service worker. 1-minute alarm (playtime, trade + friend notifications), server-region lookups, opens the dashboard.
 - `extension/content/game.js`: game page panel (stats, server browser, player finder).
-- `extension/content/profile.js`: profile info bar.
-- `extension/dashboard/`: the dashboard tab (hash routes: `#home`, `#playtime`, `#friends`, `#trades`, `#items`, `#lookup/<name>`, `#settings`).
+- `extension/content/profile.js`: profile info bar (value, mutuals, last online, private note).
+- `extension/content/home.js`: "Most played" row on roblox.com/home.
+- `extension/content/search.js`: quick search under the navbar search box.
+- `extension/content/trade.js`: trade window totals + lowball warning.
+- `extension/content/item.js`: value card on catalog pages of limiteds.
+- `extension/content/cards.js`: playtime badges on game cards.
+- `extension/content/theme.js`: optional roblox.com themes (document_start).
+- `extension/dashboard/`: the dashboard tab (hash routes: `#home`, `#playtime`, `#games`, `#friends`, `#robux`, `#trades`, `#items`, `#sandbox`, `#lookup/<name>`, `#settings`).
 
 ## Website hosting (one-time Caddy setup in CT103)
 
