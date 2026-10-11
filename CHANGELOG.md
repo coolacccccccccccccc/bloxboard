@@ -1,5 +1,11 @@
 ## Changelog
 
+### 0.7.0 · 11 October 2026
+
+- New: the Bloxboard Community at bloxboard.enesserver.dev/community. Share Roblox Studio scripts, outfits and posts. Anyone can read; to post, apply and an admin approves you.
+- Avatar sandbox: "Share to community" button.
+- Outfit posts: "Try it on" opens the outfit in your sandbox.
+
 ### 0.6.0 · 11 October 2026
 
 - Themes for roblox.com (Settings): Midnight, Ocean, Forest and Grape for dark mode, Sakura for light mode. Off by default.

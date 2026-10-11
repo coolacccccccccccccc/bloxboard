@@ -991,11 +991,30 @@ async function myAvatar(userId) {
   };
 }
 
-pages.sandbox = async (root) => {
-  root.append(pageHead('Avatar sandbox', 'Try any item on your avatar without buying it. Outfits you save stay in this browser.'));
+const COMMUNITY = 'https://bloxboard.enesserver.dev/community/';
+const encodeOutfit = o => btoa(unescape(encodeURIComponent(JSON.stringify(o))));
+const decodeOutfit = s => JSON.parse(decodeURIComponent(escape(atob(s))));
+
+pages.sandbox = async (root, arg) => {
+  root.append(pageHead('Avatar sandbox', 'Try any item on your avatar without buying it. Outfits you save stay in this browser.',
+    el('a', { class: 'btn ghost', href: `${COMMUNITY}#/?type=outfit`, target: '_blank', text: 'Community outfits ↗' })));
   const me = await BB.me();
   const base = await myAvatar(me.id);
   let def = structuredClone(base);
+  // Opened from a community post: wear that outfit.
+  if (arg?.startsWith('import/')) {
+    try {
+      const o = decodeOutfit(decodeURIComponent(arg.slice(7)));
+      def = {
+        type: o.type === 'R6' ? 'R6' : 'R15',
+        scales: { ...base.scales, ...(o.scales || {}) },
+        bodyColors: { ...base.bodyColors, ...(o.bodyColors || {}) },
+        assets: (o.assets || []).map(a => ({ id: Number(a.id), name: a.name, type: a.type, owned: base.assets.some(b => b.id === Number(a.id)) })).filter(a => a.id),
+      };
+    } catch {
+      root.append(el('p', { class: 'error', text: 'That outfit link is broken.' }));
+    }
+  }
   const prices = new Map();
 
   const preview = img('sandbox-img', null);
@@ -1100,7 +1119,12 @@ pages.sandbox = async (root) => {
       status,
       el('div', { class: 'row wrap', style: { margin: '10px 0' } },
         el('button', { class: 'btn ghost', type: 'button', text: 'Reset to my avatar', onclick: () => { def = structuredClone(base); redraw(); } }),
-        el('button', { class: 'btn ghost', type: 'button', text: 'Remove everything', onclick: () => { def.assets = []; redraw(); } })),
+        el('button', { class: 'btn ghost', type: 'button', text: 'Remove everything', onclick: () => { def.assets = []; redraw(); } }),
+        el('button', { class: 'btn', type: 'button', text: 'Share to community', onclick: () => {
+          if (!def.assets.length) return;
+          const outfit = { type: def.type, scales: def.scales, bodyColors: def.bodyColors, assets: def.assets.map(a => ({ id: a.id, name: a.name, type: a.type })), preview: preview.src || null };
+          window.open(`${COMMUNITY}#/new?outfit=${encodeURIComponent(encodeOutfit(outfit))}`, '_blank');
+        } })),
       el('h2', { text: 'Wearing', style: { marginTop: '8px' } }), worn, cost,
       el('h2', { text: 'Saved outfits', style: { marginTop: '16px' } }), saveForm, saved),
     el('section', { class: 'card' },

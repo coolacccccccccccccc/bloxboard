@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bloxboard",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Free Roblox companion: server browser with regions, player finder, playtime, trade values, friends and a dashboard.",
   "icons": {
     "16": "icons/16.png",
@@ -128,6 +128,15 @@
       "js": [
         "lib.js",
         "content/theme.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://bloxboard.enesserver.dev/*"
+      ],
+      "js": [
+        "content/community.js"
       ],
       "run_at": "document_start"
     }

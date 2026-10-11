@@ -169,15 +169,17 @@ Every RoPro feature from ropro.io/features, and where it stands in Bloxboard.
 
 > Stays free, no ads. One small server on the homelab powers this and the RoPro server-side features below.
 
-- [ ] Decide who can post: invite-only (friends) first, or public
-- [ ] Decide login: Sign in with Roblox (official OAuth app) or Discord
-- [ ] Backend on the homelab: small API + database in its own container, behind Caddy at `bloxboard.enesserver.dev/api`
-- [ ] Scripts: share Roblox Studio (Luau) scripts with highlighting, tags and a copy button
-- [ ] Outfits: share avatar sandbox outfits; anyone can try them on in their own sandbox with one click
-- [ ] Posts: short community posts with images
-- [ ] Likes, comments, profiles (your Roblox avatar and name)
-- [ ] Safety from day one: report button, admin queue, word filter, rate limits, delete and ban (lots of Roblox players are kids)
-- [ ] In the extension: "Share outfit" in the sandbox, community feed in the dashboard
+- [x] Decided: anyone can read; posting needs an application an admin approves
+- [x] Decided: Sign in with Roblox
+- [x] Backend: CT116 `bloxboard-hub` (192.168.2.44, FastAPI + SQLite, daily DB backup), behind Caddy at `/api`
+- [ ] **You:** register the Roblox OAuth app and send me the client ID + secret and your Roblox username (for admin)
+- [x] Scripts: share Roblox Studio (Luau) scripts with highlighting, tags and a copy button
+- [x] Outfits: share from the avatar sandbox; anyone with Bloxboard can try them on with one click
+- [x] Posts with images (re-encoded on upload, metadata stripped)
+- [x] Likes, comments, profiles (your Roblox avatar and name)
+- [x] Safety: applications, 13+ check, rules page, report button, admin queue, word filter, rate limits, delete and ban
+- [x] In the extension: "Share to community" in the sandbox, "Try it on" on outfit posts
+- [ ] Community feed inside the dashboard
 - [ ] Same server unlocks: profile likes, comments on limiteds, trade board, oldest/newest servers, playtime sync between PCs
 
 ## Rules we stick to
