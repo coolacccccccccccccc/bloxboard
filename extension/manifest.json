@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bloxboard",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Free Roblox companion: server browser with regions, player finder, playtime, trade values, friends and a dashboard.",
   "icons": {
     "16": "icons/16.png",

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Bloxboard.Companion.App</RootNamespace>
+    <AssemblyName>BloxboardCompanion</AssemblyName>
+    <ApplicationIcon>bloxboard.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <Product>Bloxboard Companion</Product>
+    <Description>Reads Roblox's log files to show your current server. Never touches the Roblox client.</Description>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="bloxboard.ico" LogicalName="bloxboard.ico" />
+    <ProjectReference Include="../Core/Core.csproj" />
+  </ItemGroup>
+</Project>

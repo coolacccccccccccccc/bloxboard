@@ -640,7 +640,9 @@
     renderRecent();
     loadStats();
     setInterval(() => { if (!document.hidden) loadStats(); }, 30000);
-    showTab('servers');
+    // Opened from the Windows companion's "Bloxboard" button: go straight to the player finder.
+    showTab(location.hash.includes('bbx-find') ? 'find' : 'servers');
+    if (location.hash.includes('bbx-find')) loadServers();
     loadFriendsInServers();
   }
 

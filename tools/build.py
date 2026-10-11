@@ -151,6 +151,19 @@ def build_site(version, ext_id, zip_path, crx_path):
 </gupdate>
 """)
 
+    # Windows companion (built separately by tools/build-companion.sh).
+    exe = os.path.join(DIST, 'BloxboardCompanion.exe')
+    comp = {'{{COMP_VERSION}}': '1.0.0', '{{COMP_MB}}': '?', '{{COMP_SHA}}': 'not built yet'}
+    if os.path.exists(exe):
+        import hashlib
+        shutil.copy(exe, os.path.join(dl, 'BloxboardCompanion.exe'))
+        csproj = open(os.path.join(ROOT, 'companion', 'App', 'App.csproj')).read()
+        comp = {
+            '{{COMP_VERSION}}': re.search(r'<Version>([^<]+)</Version>', csproj).group(1),
+            '{{COMP_MB}}': str(round(os.path.getsize(exe) / 1024 / 1024)),
+            '{{COMP_SHA}}': hashlib.sha256(open(exe, 'rb').read()).hexdigest(),
+        }
+
     plan_md = open(os.path.join(ROOT, 'docs', 'PLAN.md')).read()
     changelog_md = open(os.path.join(ROOT, 'CHANGELOG.md')).read()
     done, doing, todo = progress(plan_md)
@@ -167,6 +180,7 @@ def build_site(version, ext_id, zip_path, crx_path):
         '{{TODO}}': str(todo),
         '{{PCT}}': str(round(done / total * 100)),
         '{{CRX_KB}}': str(round(os.path.getsize(crx_path) / 1024)),
+        **comp,
     }
     for name in os.listdir(SITE_OUT):
         if name.endswith('.html'):

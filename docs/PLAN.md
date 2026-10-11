@@ -119,6 +119,17 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [ ] Custom theme colors, shareable as a code
 - [ ] Cheapest-copy finder for an outfit
 
+## 7b. Windows companion
+
+- [x] Companion app (C# WinForms, single .exe): reads Roblox's log file only, no injection, no memory reading, no cookies
+- [x] Overlay: game, server location, time in server, players; Copy invite, Server hop (smallest/random/busiest), Rejoin, open Bloxboard finder
+- [x] Recent servers window, tray icon, Ctrl+Shift+B, remembers position
+- [x] Starts/closes with Roblox via Fishstrap/Bloxstrap Custom Integrations (`--with-roblox`)
+- [x] Tested: core tests on Linux (incl. live Roblox APIs) + the real .exe under Wine with a fake Roblox log
+- [ ] **You:** run it on Windows with real Roblox and tell me what looks off
+- [ ] Code signing (no SmartScreen warning): needs a paid certificate, skipped for now
+- [ ] Playtime counted by the companion too (synced to the extension)
+
 ## 8. Infrastructure on the homelab
 
 - [ ] Optional sync server (small container) so playtime and settings follow you between PCs. Private token, your data only

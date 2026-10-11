@@ -1,5 +1,10 @@
 ## Changelog
 
+### Companion 1.0.0 + extension 0.7.2 · 11 October 2026
+
+- New Windows app: Bloxboard Companion. A small always-on-top window next to Roblox with the game, server location, time in server, Copy invite, Server hop, Rejoin and Recent servers. It only reads Roblox's log file (like Fishstrap and Bloxstrap), so it never touches the game. Starts with Roblox through Fishstrap/Bloxstrap Custom Integrations.
+- Extension: the companion's "Bloxboard" button opens the game page straight on Find player.
+
 ### 0.7.1 · 11 October 2026
 
 - Player finder: new "Display name" mode. It looks up every account with that display name and scans the servers for all of them at once. Accounts with identical default avatars are skipped, so it doesn't match strangers.

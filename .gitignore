@@ -4,3 +4,6 @@ site-dist/
 tools/node_modules/
 tools/test/shots/
 __pycache__/
+companion/**/bin/
+companion/**/obj/
+companion/out/

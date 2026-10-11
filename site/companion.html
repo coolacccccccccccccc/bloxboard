@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Bloxboard Companion</title>
+  <meta name="description" content="A small Windows window next to Roblox: your server's location, invite links, server hop and rejoin. Starts with Fishstrap or Bloxstrap.">
+  <link rel="icon" href="favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="./"><img src="icon.png" alt="">Bloxboard</a>
+      <nav>
+        <a href="./#install">Extension</a>
+        <a href="companion.html" aria-current="page">Companion</a>
+        <a href="community/">Community</a>
+        <a href="plan.html">Plan</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div>
+        <div class="eyebrow">Windows app · v{{COMP_VERSION}}</div>
+        <h1>Companion</h1>
+        <p class="lead">A small window next to Roblox with your server's location, an invite link, server hop and rejoin. It starts and closes together with Roblox through Fishstrap or Bloxstrap.</p>
+        <div class="actions">
+          <a class="btn" href="download/BloxboardCompanion.exe">Download for Windows</a>
+          <a class="btn ghost" href="#setup">Set up with Fishstrap</a>
+        </div>
+        <p class="meta">{{COMP_MB}} MB · Windows 10 and 11 · nothing to install</p>
+      </div>
+      <figure class="shot" style="margin:0">
+        <img src="img/companion.png" alt="The companion window showing SCP Architect X, a Frankfurt server and buttons for invite, server hop, rejoin and Bloxboard">
+        <figcaption>The companion window while you're in a server</figcaption>
+      </figure>
+    </section>
+
+    <section class="block">
+      <h2>Won't this get me banned?</h2>
+      <p class="sub">No. Executors like Xeno or Velocity get you banned because they inject code into the running game. The companion never touches the game at all.</p>
+      <div class="features">
+        <article class="feature"><h3>Only reads a log file</h3><p>Roblox writes a plain text log to <code>%LOCALAPPDATA%\Roblox\logs</code> on every PC. The companion reads it, just like Fishstrap and Bloxstrap do to show your server location.</p></article>
+        <article class="feature"><h3>Its own window</h3><p>It's a separate window that floats on top. It doesn't draw inside Roblox, read Roblox's memory or attach to its process.</p></article>
+        <article class="feature"><h3>Official join links</h3><p>Rejoin and server hop use the same <code>roblox://</code> links as the Join buttons on roblox.com.</p></article>
+        <article class="feature"><h3>No login, no cookies</h3><p>It only uses Roblox's public website data (game name, server list). It never reads your account or browser.</p></article>
+      </div>
+    </section>
+
+    <section class="block" id="setup">
+      <h2>Set up with Fishstrap or Bloxstrap</h2>
+      <p class="sub">So it opens when Roblox opens and closes when Roblox closes.</p>
+      <ol class="steps">
+        <li>Download the companion and put it somewhere it can stay, like <code>Documents\Bloxboard\BloxboardCompanion.exe</code>.</li>
+        <li>Open Fishstrap (or Bloxstrap) → <strong>Integrations</strong> → <strong>Custom Integrations</strong> → <strong>New</strong>.</li>
+        <li>Name: <code>Bloxboard Companion</code>. Application location: the .exe you saved. Launch arguments: <code>--with-roblox</code>.</li>
+        <li>Turn on <strong>Auto close when Roblox closes</strong>, save, and launch Roblox.</li>
+      </ol>
+      <div class="note" style="margin-top:18px"><p><strong>Windows says "Windows protected your PC"?</strong> That's SmartScreen being careful with new apps that aren't signed by a big company. Click <strong>More info</strong> → <strong>Run anyway</strong>. You only have to do this once.</p></div>
+      <p class="meta">No Fishstrap? Just open the .exe yourself: it waits in the tray until you join a game.</p>
+    </section>
+
+    <section class="block">
+      <h2>What it does</h2>
+      <div class="features">
+        <article class="feature"><span class="where">Overlay</span><h3>Your server at a glance</h3><p>Game, server location, how long you've been there and how many people are playing.</p></article>
+        <article class="feature"><span class="where">Overlay</span><h3>Copy invite</h3><p>A link that drops friends straight into your server.</p></article>
+        <article class="feature"><span class="where">Overlay</span><h3>Server hop</h3><p>Jump to the smallest server, a random one, or the busiest one that still has room.</p></article>
+        <article class="feature"><span class="where">Overlay</span><h3>Rejoin + Bloxboard</h3><p>Rejoin after a disconnect, or open the game in your browser with Bloxboard's player finder.</p></article>
+        <article class="feature"><span class="where">Tray</span><h3>Recent servers</h3><p>Every server you played in, with Rejoin and Copy invite.</p></article>
+        <article class="feature"><span class="where">Anywhere</span><h3>Ctrl+Shift+B</h3><p>Show or hide the window. Drag it anywhere; it remembers where you put it.</p></article>
+      </div>
+      <p class="meta">Settings, history and a small log live in <code>%APPDATA%\Bloxboard</code>. To remove it, delete the .exe and that folder.</p>
+      <p class="meta">SHA-256: <code style="word-break:break-all">{{COMP_SHA}}</code></p>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Bloxboard Companion v{{COMP_VERSION}}</span>
+      <span>Not affiliated with Roblox, Fishstrap or Bloxstrap.</span>
+    </div>
+  </footer>
+</body>
+</html>
