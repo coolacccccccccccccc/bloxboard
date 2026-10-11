@@ -1,66 +1,92 @@
-// Game page: one compact panel at the top of the Servers tab with game stats,
-// a server browser (regions, filters, quick join) and a player finder.
+// Game page: replaces Roblox's public server list with Bloxboard's panel:
+// live game stats, a filterable server browser (regions, ping, FPS, size, friends),
+// recent servers and a player finder.
 
 (() => {
   const placeMatch = location.pathname.match(/\/games\/(\d+)/);
   if (!placeMatch || document.getElementById('bbx-game')) return;
   const PLACE_ID = placeMatch[1];
   const { el, api, num, duration } = BB;
+  const ROBLOX_LIST = '[id*="public-running-games"], #rbx-public-game-server-item-container';
+
+  let settings = { ...BB.DEFAULT_SETTINGS };
+  let universeId = null;
 
   // ---------- skeleton ----------
 
   const stats = el('div', { class: 'bbx-stats' }, el('span', { class: 'bbx-muted', text: 'Loading game stats…' }));
-  const tabServers = el('button', { class: 'bbx-tab', 'aria-selected': 'true', type: 'button', text: 'Servers' });
-  const tabFind = el('button', { class: 'bbx-tab', 'aria-selected': 'false', type: 'button', text: 'Find player' });
-  const viewServers = el('div', { class: 'bbx-view' });
-  const viewFind = el('div', { class: 'bbx-view', hidden: true });
+  const robloxToggle = el('button', { class: 'bbx-link', type: 'button' });
+  const tabs = {
+    servers: el('button', { class: 'bbx-tab', type: 'button', text: 'Servers' }),
+    recent: el('button', { class: 'bbx-tab', type: 'button', text: 'Recent' }),
+    find: el('button', { class: 'bbx-tab', type: 'button', text: 'Find player' }),
+  };
+  const views = {
+    servers: el('div', { class: 'bbx-view' }),
+    recent: el('div', { class: 'bbx-view' }),
+    find: el('div', { class: 'bbx-view' }),
+  };
 
   const panel = el('section', { id: 'bbx-game', class: 'bbx-panel' },
     el('header', { class: 'bbx-head' },
       el('span', { class: 'bbx-brand', text: 'Bloxboard' }),
       stats,
-      el('button', { class: 'bbx-link', type: 'button', text: 'Dashboard ↗', onclick: () => chrome.runtime.sendMessage({ type: 'openDashboard' }) })),
-    el('nav', { class: 'bbx-tabs' }, tabServers, tabFind),
-    viewServers,
-    viewFind);
+      el('div', { class: 'bbx-head-links' },
+        robloxToggle,
+        el('button', { class: 'bbx-link', type: 'button', text: 'Dashboard ↗', onclick: () => chrome.runtime.sendMessage({ type: 'openDashboard' }) }))),
+    el('nav', { class: 'bbx-tabs' }, Object.values(tabs)),
+    Object.values(views));
 
   function showTab(which) {
-    tabServers.setAttribute('aria-selected', String(which === 'servers'));
-    tabFind.setAttribute('aria-selected', String(which === 'find'));
-    viewServers.hidden = which !== 'servers';
-    viewFind.hidden = which !== 'find';
-    if (which === 'servers' && !servers.length && !loadingServers) loadServers();
+    for (const [k, t] of Object.entries(tabs)) t.setAttribute('aria-selected', String(k === which));
+    for (const [k, v] of Object.entries(views)) v.hidden = k !== which;
+    if (which === 'servers' && !servers.length && !loading) loadServers();
+    if (which === 'recent') renderRecent();
   }
-  tabServers.onclick = () => showTab('servers');
-  tabFind.onclick = () => showTab('find');
+  for (const [k, t] of Object.entries(tabs)) t.onclick = () => showTab(k);
 
-  // ---------- stats ----------
+  function applyReplace() {
+    document.documentElement.classList.toggle('bbx-replace-servers', settings.replaceServerList);
+    robloxToggle.textContent = settings.replaceServerList ? 'Show Roblox list' : 'Hide Roblox list';
+  }
+  robloxToggle.onclick = async () => {
+    settings.replaceServerList = !settings.replaceServerList;
+    await BB.set('settings', { ...(await BB.get('settings', {})), replaceServerList: settings.replaceServerList });
+    applyReplace();
+  };
+
+  // ---------- stats (likes refresh every 30 s, like a live counter) ----------
+
+  const chip = (label, value, title) => el('span', { class: 'bbx-chip', title }, el('b', { text: value }), ` ${label}`);
 
   async function loadStats() {
     try {
-      const universeId = await BB.universeOf(PLACE_ID);
+      universeId ??= await BB.universeOf(PLACE_ID);
       const [{ data: [game] }, { data: [votes] }, fav, playtime] = await Promise.all([
         api(`https://games.roblox.com/v1/games?universeIds=${universeId}`),
         api(`https://games.roblox.com/v1/games/votes?universeIds=${universeId}`),
         api(`https://games.roblox.com/v1/games/${universeId}/favorites/count`).catch(() => null),
         BB.get('playtime', {}),
       ]);
-
       let mine = 0;
-      for (const day of Object.values(playtime)) mine += day[universeId] || 0;
+      let week = 0;
+      const weekKeys = new Set(Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - i); return BB.dayKey(d); }));
+      for (const [day, games] of Object.entries(playtime)) {
+        mine += games[universeId] || 0;
+        if (weekKeys.has(day)) week += games[universeId] || 0;
+      }
       const total = votes.upVotes + votes.downVotes;
-      const ratio = total ? Math.round((votes.upVotes / total) * 100) : null;
+      const ratio = total ? (votes.upVotes / total) * 100 : null;
       const updated = new Date(game.updated);
-      const days = Math.floor((Date.now() - updated) / 86400000);
-
-      const chip = (label, value, title) => el('span', { class: 'bbx-chip', title }, el('b', { text: value }), ` ${label}`);
       stats.replaceChildren(...[
-        chip('liked', ratio == null ? '–' : `${ratio}%`, `${votes.upVotes.toLocaleString()} up · ${votes.downVotes.toLocaleString()} down`),
+        chip('liked', ratio == null ? '–' : `${ratio.toFixed(1)}%`, `${votes.upVotes.toLocaleString()} likes · ${votes.downVotes.toLocaleString()} dislikes (live)`),
+        chip('👍', num(votes.upVotes)),
+        chip('👎', num(votes.downVotes)),
         chip('playing', num(game.playing)),
         chip('visits', num(game.visits)),
         fav && chip('favs', num(fav.favoritesCount)),
-        chip('updated', days <= 0 ? 'today' : `${days}d ago`, updated.toLocaleString()),
-        mine ? chip('played by you', duration(mine)) : null,
+        chip('updated', BB.ago(updated), updated.toLocaleString()),
+        mine ? chip('played', duration(mine), `${duration(week)} this week`) : null,
       ].filter(Boolean));
     } catch (e) {
       stats.replaceChildren(el('span', { class: 'bbx-muted', text: `Stats unavailable (${e.message})` }));
@@ -71,35 +97,90 @@
 
   let servers = [];
   let cursor = null;
-  let loadingServers = false;
+  let loading = false;
+  let loadAllAbort = null;
   const regions = new Map(); // gameId -> {city, cc} | null
+  const friendsIn = new Map(); // gameId -> [{name, shot}]
+  let recentIds = new Set();
+  let filters = {
+    sort: 'most', region: '', min: '', max: '', room: '0', ping: '0', fps: '0', hideFull: false, friendsOnly: false,
+  };
 
-  const sortSel = el('select', { class: 'bbx-input', 'aria-label': 'Sort servers' },
-    el('option', { value: 'most', text: 'Most players' }),
-    el('option', { value: 'least', text: 'Fewest players' }),
-    el('option', { value: 'ping', text: 'Best ping' }));
-  const regionSel = el('select', { class: 'bbx-input', 'aria-label': 'Filter by region' }, el('option', { value: '', text: 'All regions' }));
-  const hideFull = el('input', { type: 'checkbox' });
-  const regionBtn = el('button', { class: 'bbx-btn bbx-ghost', type: 'button', text: 'Detect regions' });
-  const smallestBtn = el('a', { class: 'bbx-btn', text: 'Join smallest' });
+  const select = (key, label, options) => {
+    const s = el('select', { class: 'bbx-input', 'aria-label': label, 'data-key': key },
+      options.map(([v, t]) => el('option', { value: v, text: t })));
+    s.onchange = () => { filters[key] = s.value; saveFilters(); renderServers(); };
+    return s;
+  };
+  const numberBox = (key, placeholder) => {
+    const i = el('input', { class: 'bbx-input bbx-num-input', type: 'number', min: '0', max: '700', placeholder, 'aria-label': `${placeholder} players`, 'data-key': key });
+    i.oninput = () => { filters[key] = i.value; saveFilters(); renderServers(); };
+    return i;
+  };
+  const check = (key, label) => {
+    const c = el('input', { type: 'checkbox', 'data-key': key });
+    c.onchange = () => { filters[key] = c.checked; saveFilters(); renderServers(); };
+    return el('label', { class: 'bbx-check' }, c, label);
+  };
+
+  const sortSel = select('sort', 'Sort servers', [
+    ['most', 'Most players'], ['least', 'Fewest players'], ['ping', 'Best ping'], ['fps', 'Best FPS'], ['room', 'Most free slots'], ['friends', 'Friends first'],
+  ]);
+  const regionSel = el('select', { class: 'bbx-input', 'aria-label': 'Region' });
+  regionSel.onchange = async () => {
+    filters.region = regionSel.value;
+    saveFilters();
+    // The region filter doubles as your preferred region across all games.
+    await BB.set('settings', { ...(await BB.get('settings', {})), preferredRegion: regionSel.value });
+    renderServers();
+    if (regionSel.value) detectRegions(true);
+  };
+  const minBox = numberBox('min', 'Min');
+  const maxBox = numberBox('max', 'Max');
+  const roomSel = select('room', 'Free slots', [['0', 'Any room'], ['1', 'Room for 1+'], ['2', 'Room for 2+'], ['3', 'Room for 3+'], ['4', 'Room for 4+'], ['6', 'Room for 6+']]);
+  const pingSel = select('ping', 'Max ping', [['0', 'Any ping'], ['60', 'Ping ≤ 60'], ['100', 'Ping ≤ 100'], ['150', 'Ping ≤ 150'], ['250', 'Ping ≤ 250']]);
+  const fpsSel = select('fps', 'Min FPS', [['0', 'Any FPS'], ['30', 'FPS ≥ 30'], ['45', 'FPS ≥ 45'], ['55', 'FPS ≥ 55']]);
+  const hideFullBox = check('hideFull', 'Hide full');
+  const friendsBox = check('friendsOnly', 'Friends only');
+
+  const regionBtn = el('button', { class: 'bbx-btn bbx-ghost', type: 'button', text: 'Detect regions', onclick: () => detectRegions(false) });
+  const loadAllBtn = el('button', { class: 'bbx-btn bbx-ghost', type: 'button', text: 'Load all' });
+  const randomBtn = el('button', { class: 'bbx-btn bbx-ghost', type: 'button', text: 'Random server' });
+  const bestBtn = el('a', { class: 'bbx-btn', text: 'Join best' });
+  const countText = el('span', { class: 'bbx-muted bbx-small' });
   const list = el('div', { class: 'bbx-list' });
-  const moreBtn = el('button', { class: 'bbx-btn bbx-ghost bbx-more', type: 'button', text: 'Load more servers', hidden: true });
+  const moreBtn = el('button', { class: 'bbx-btn bbx-ghost bbx-more', type: 'button', text: 'Load more servers', hidden: true, onclick: () => loadServers() });
   const serverStatus = el('p', { class: 'bbx-muted bbx-small' });
 
-  viewServers.append(
-    el('div', { class: 'bbx-toolbar' },
-      sortSel, regionSel,
-      el('label', { class: 'bbx-check' }, hideFull, 'Hide full'),
-      el('span', { class: 'bbx-grow' }),
-      regionBtn, smallestBtn),
+  views.servers.append(
+    el('div', { class: 'bbx-filters' },
+      el('div', { class: 'bbx-field' }, el('span', { text: 'Sort' }), sortSel),
+      el('div', { class: 'bbx-field' }, el('span', { text: 'Region' }), regionSel),
+      el('div', { class: 'bbx-field' }, el('span', { text: 'Players' }), el('div', { class: 'bbx-range' }, minBox, el('span', { class: 'bbx-muted', text: '–' }), maxBox)),
+      el('div', { class: 'bbx-field' }, el('span', { text: 'Free slots' }), roomSel),
+      el('div', { class: 'bbx-field' }, el('span', { text: 'Ping' }), pingSel),
+      el('div', { class: 'bbx-field' }, el('span', { text: 'FPS' }), fpsSel),
+      el('div', { class: 'bbx-field bbx-checks' }, hideFullBox, friendsBox)),
+    el('div', { class: 'bbx-toolbar' }, countText, el('span', { class: 'bbx-grow' }), regionBtn, loadAllBtn, randomBtn, bestBtn),
     list, moreBtn, serverStatus);
 
-  sortSel.onchange = regionSel.onchange = hideFull.onchange = renderServers;
-  moreBtn.onclick = () => loadServers();
-  regionBtn.onclick = detectRegions;
+  async function saveFilters() {
+    const { region, ...rest } = filters;
+    await BB.set('serverFilters', rest);
+  }
+
+  async function restoreFilters() {
+    filters = { ...filters, ...(await BB.get('serverFilters', {})), region: settings.preferredRegion || '' };
+    for (const node of views.servers.querySelectorAll('[data-key]')) {
+      const v = filters[node.dataset.key];
+      if (node.type === 'checkbox') node.checked = !!v;
+      else node.value = v ?? '';
+    }
+  }
 
   async function loadServers() {
-    loadingServers = true;
+    if (loading) return;
+    loading = true;
     moreBtn.disabled = true;
     serverStatus.textContent = 'Loading servers…';
     try {
@@ -108,70 +189,135 @@
       servers.push(...(page.data || []).filter(s => !seen.has(s.id)));
       cursor = page.nextPageCursor;
       moreBtn.hidden = !cursor;
-      serverStatus.textContent = `${servers.length} servers loaded${cursor ? '' : ' (all of them)'}.`;
+      loadAllBtn.disabled = !cursor;
+      serverStatus.textContent = `${servers.length} servers loaded${cursor ? '' : ' (that\'s all of them)'}.`;
       renderServers();
+      if (filters.region) detectRegions(true);
     } catch (e) {
       serverStatus.textContent = `Couldn't load servers: ${e.message}`;
     } finally {
-      loadingServers = false;
+      loading = false;
       moreBtn.disabled = false;
     }
   }
 
-  function regionLabel(r) {
-    if (!r) return null;
-    return r.cc ? `${r.city}, ${r.cc}` : r.city;
-  }
+  loadAllBtn.onclick = async () => {
+    if (loadAllAbort) {
+      loadAllAbort.abort();
+      return;
+    }
+    loadAllAbort = new AbortController();
+    loadAllBtn.textContent = 'Stop';
+    while (cursor && !loadAllAbort.signal.aborted && servers.length < 3000) {
+      await loadServers();
+      await BB.sleep(350);
+    }
+    loadAllAbort = null;
+    loadAllBtn.textContent = 'Load all';
+  };
+
+  const regionLabel = r => (r ? (r.cc ? `${r.city}, ${r.cc}` : r.city) : null);
+  const freeSlots = s => s.maxPlayers - s.playing;
 
   function visibleServers() {
-    let out = servers.slice();
-    if (hideFull.checked) out = out.filter(s => s.playing < s.maxPlayers);
-    if (regionSel.value) out = out.filter(s => regionLabel(regions.get(s.id)) === regionSel.value);
+    const min = parseInt(filters.min, 10);
+    const max = parseInt(filters.max, 10);
+    const room = Number(filters.room);
+    const ping = Number(filters.ping);
+    const fps = Number(filters.fps);
+    let out = servers.filter((s) => {
+      if (filters.hideFull && freeSlots(s) <= 0) return false;
+      if (!Number.isNaN(min) && s.playing < min) return false;
+      if (!Number.isNaN(max) && s.playing > max) return false;
+      if (room && freeSlots(s) < room) return false;
+      if (ping && (s.ping == null || s.ping > ping)) return false;
+      if (fps && (s.fps == null || s.fps < fps)) return false;
+      if (filters.friendsOnly && !friendsIn.has(s.id)) return false;
+      if (filters.region && regionLabel(regions.get(s.id)) !== filters.region) return false;
+      return true;
+    });
     const by = {
       most: (a, b) => b.playing - a.playing,
       least: (a, b) => a.playing - b.playing,
       ping: (a, b) => (a.ping ?? 9999) - (b.ping ?? 9999),
-    }[sortSel.value];
+      fps: (a, b) => (b.fps ?? 0) - (a.fps ?? 0),
+      room: (a, b) => freeSlots(b) - freeSlots(a),
+      friends: (a, b) => (friendsIn.get(b.id)?.length || 0) - (friendsIn.get(a.id)?.length || 0) || b.playing - a.playing,
+    }[filters.sort] || ((a, b) => b.playing - a.playing);
     return out.sort(by);
   }
 
-  function renderServers() {
-    // Region dropdown
-    const labels = [...new Set([...regions.values()].map(regionLabel).filter(Boolean))].sort();
-    const current = regionSel.value;
-    regionSel.replaceChildren(el('option', { value: '', text: 'All regions' }), ...labels.map(l => el('option', { value: l, text: l })));
-    regionSel.value = labels.includes(current) ? current : '';
+  function renderRegionOptions() {
+    const labels = new Set([...regions.values()].map(regionLabel).filter(Boolean));
+    if (filters.region) labels.add(filters.region);
+    const sorted = [...labels].sort();
+    regionSel.replaceChildren(el('option', { value: '', text: 'All regions' }), ...sorted.map(l => el('option', { value: l, text: l })));
+    regionSel.value = filters.region || '';
+  }
 
+  function renderServers() {
+    renderRegionOptions();
     const rows = visibleServers();
-    const smallest = rows.filter(s => s.playing > 0).sort((a, b) => a.playing - b.playing)[0];
-    smallestBtn.href = smallest ? BB.joinUrl(PLACE_ID, smallest.id) : '#';
-    smallestBtn.classList.toggle('bbx-disabled', !smallest);
+    const best = rows.find(s => freeSlots(s) > 0);
+    bestBtn.href = best ? BB.joinUrl(PLACE_ID, best.id) : '#';
+    bestBtn.classList.toggle('bbx-disabled', !best);
+    bestBtn.title = best ? 'First server that matches your filters and has room' : '';
+    randomBtn.disabled = !rows.some(s => freeSlots(s) > 0);
+    countText.textContent = servers.length ? `Showing ${Math.min(rows.length, 200)} of ${servers.length} loaded servers` : '';
 
     if (!rows.length) {
-      list.replaceChildren(el('p', { class: 'bbx-empty', text: !servers.length ? 'No servers yet.' : hideFull.checked && !regionSel.value ? 'Every loaded server is full. Load more servers or untick "Hide full".' : 'No servers match these filters.' }));
+      const reason = !servers.length ? 'No servers loaded yet.'
+        : filters.region && ![...regions.values()].some(Boolean) ? 'Detecting regions…'
+          : 'No servers match these filters. Load more servers or loosen a filter.';
+      list.replaceChildren(el('p', { class: 'bbx-empty', text: reason }));
       return;
     }
 
     list.replaceChildren(...rows.slice(0, 200).map((s) => {
       const r = regions.get(s.id);
-      const pct = Math.round((s.playing / s.maxPlayers) * 100);
-      return el('div', { class: 'bbx-row' },
+      const friends = friendsIn.get(s.id) || [];
+      const pct = Math.min(100, Math.round((s.playing / s.maxPlayers) * 100));
+      const copyBtn = el('button', { class: 'bbx-btn bbx-ghost bbx-sm', type: 'button', title: 'Copy an invite link to this server', text: 'Link' });
+      copyBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(BB.inviteUrl(PLACE_ID, s.id));
+          copyBtn.textContent = 'Copied';
+        } catch {
+          copyBtn.textContent = 'Failed';
+        }
+        setTimeout(() => { copyBtn.textContent = 'Link'; }, 1500);
+      };
+      return el('div', { class: `bbx-row${friends.length ? ' bbx-row-friends' : ''}` },
         el('div', { class: 'bbx-fill' },
-          el('div', { class: 'bbx-fill-top' }, el('b', { text: `${s.playing}/${s.maxPlayers}` }), el('span', { class: 'bbx-muted', text: ' players' })),
+          el('div', { class: 'bbx-fill-top' },
+            el('b', { text: `${s.playing}/${s.maxPlayers}` }),
+            friends.length ? el('span', { class: 'bbx-faces bbx-faces-sm', title: friends.map(f => f.name).join(', ') }, friends.slice(0, 3).map(f => el('img', { src: f.shot || undefined, alt: '' })), el('span', { class: 'bbx-small', text: ` ${friends.length === 1 ? friends[0].name : `${friends.length} friends`}` })) : null,
+            recentIds.has(s.id) ? el('span', { class: 'bbx-tag', text: 'Been here' }) : null),
           el('div', { class: 'bbx-meter' }, el('i', { style: { width: `${pct}%` } }))),
-        el('span', { class: 'bbx-num', title: 'Ping from the server to its players' }, s.ping != null ? `${s.ping} ms` : '–'),
+        el('span', { class: 'bbx-num', title: 'Average ping of players in this server' }, s.ping != null ? `${s.ping} ms` : '–'),
         el('span', { class: 'bbx-num bbx-hide-sm', title: 'Server frame rate' }, s.fps != null ? `${Math.round(s.fps)} fps` : '–'),
         el('span', { class: `bbx-region${r ? '' : ' bbx-muted'}` }, regions.has(s.id) ? (regionLabel(r) || 'Unknown') : '—'),
-        el('a', { class: 'bbx-btn bbx-sm', href: BB.joinUrl(PLACE_ID, s.id), text: 'Join' }));
+        el('span', { class: 'bbx-row-actions' }, copyBtn, el('a', { class: 'bbx-btn bbx-sm', href: BB.joinUrl(PLACE_ID, s.id), text: 'Join' })));
     }));
   }
 
-  async function detectRegions() {
-    const todo = visibleServers().filter(s => !regions.has(s.id)).slice(0, 40);
+  randomBtn.onclick = () => {
+    const pool = visibleServers().filter(s => freeSlots(s) > 0);
+    if (!pool.length) return;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    location.href = BB.joinUrl(PLACE_ID, pick.id);
+  };
+
+  let detecting = false;
+  async function detectRegions(auto) {
+    if (detecting) return;
+    const pool = auto ? servers : visibleServers();
+    const todo = pool.filter(s => !regions.has(s.id) && freeSlots(s) > 0).slice(0, auto ? 30 : 40);
     if (!todo.length) {
-      serverStatus.textContent = 'Regions already detected for the servers shown.';
+      if (!auto) serverStatus.textContent = 'Regions are already known for these servers.';
       return;
     }
+    detecting = true;
     regionBtn.disabled = true;
     serverStatus.textContent = `Detecting regions for ${todo.length} servers…`;
     try {
@@ -182,14 +328,49 @@
         renderServers();
       }
       const found = todo.filter(s => regions.get(s.id)).length;
-      serverStatus.textContent = found
-        ? `Detected ${found} of ${todo.length} regions. Click again for more.`
-        : 'Roblox didn\'t share server addresses. Full servers and some games hide them.';
+      serverStatus.textContent = found ? `Detected ${found} of ${todo.length} regions.` : 'Roblox didn\'t share server addresses for these servers.';
     } catch (e) {
       serverStatus.textContent = `Region lookup failed: ${e.message}`;
     } finally {
+      detecting = false;
       regionBtn.disabled = false;
     }
+  }
+
+  async function loadFriendsInServers() {
+    try {
+      const me = await BB.me();
+      const ids = await BB.friendIds(me.id);
+      const pres = await BB.presence(ids);
+      const here = [...pres.values()].filter(p => p.userPresenceType === 2 && p.gameId && (String(p.placeId) === PLACE_ID || String(p.rootPlaceId) === PLACE_ID));
+      if (!here.length) return;
+      const [users, shots] = await Promise.all([BB.users(here.map(p => p.userId)), BB.headshots(here.map(p => p.userId))]);
+      for (const p of here) {
+        const list = friendsIn.get(p.gameId) || [];
+        list.push({ name: users.get(p.userId)?.displayName || 'Friend', shot: shots.get(p.userId) });
+        friendsIn.set(p.gameId, list);
+      }
+      renderServers();
+    } catch {
+      // not logged in or friends hidden; nothing to show
+    }
+  }
+
+  // ---------- recent servers ----------
+
+  async function renderRecent() {
+    const all = await BB.get('recentServers', []);
+    const mine = all.filter(r => String(r.placeId) === PLACE_ID || String(r.rootPlaceId) === PLACE_ID || (universeId && r.universeId === universeId));
+    recentIds = new Set(mine.map(r => r.gameId));
+    const alive = new Set(servers.map(s => s.id));
+    if (!mine.length) {
+      views.recent.replaceChildren(el('p', { class: 'bbx-empty', text: 'Servers you play in show up here, so you can hop back in.' }));
+      return;
+    }
+    views.recent.replaceChildren(el('div', { class: 'bbx-list' }, mine.slice(0, 20).map(r => el('div', { class: 'bbx-row bbx-row-recent' },
+      el('div', {}, el('b', { text: `Server ${r.gameId.slice(0, 8)}` }), el('div', { class: 'bbx-muted bbx-small', text: `Left ${BB.ago(r.lastSeen)} · played ${duration(r.minutes)}` })),
+      el('span', { class: `bbx-tag${alive.has(r.gameId) ? ' bbx-tag-good' : ''}`, text: alive.has(r.gameId) ? 'Still running' : servers.length && !cursor ? 'Closed' : 'Unknown' }),
+      el('a', { class: 'bbx-btn bbx-sm', href: BB.joinUrl(r.placeId || PLACE_ID, r.gameId), text: 'Rejoin' })))));
   }
 
   // ---------- player finder ----------
@@ -202,7 +383,7 @@
   const findResult = el('div');
   let finder = null;
 
-  viewFind.append(
+  views.find.append(
     el('form', { class: 'bbx-toolbar', onsubmit: (e) => { e.preventDefault(); finder ? finder.abort() : runFinder(findInput.value); } },
       findAvatar, findInput, findBtn),
     el('div', { class: 'bbx-meter bbx-meter-lg' }, findBar),
@@ -304,42 +485,47 @@
 
   // ---------- mount ----------
 
+  // Sit where Roblox's public server list is (and hide it), or at the top of the Servers tab.
   function mount() {
+    const robloxList = document.querySelector(ROBLOX_LIST);
+    const anchor = robloxList?.closest('[id*="public-running-games"]') || robloxList;
     const host = document.querySelector('#game-instances') || document.querySelector('#rbx-running-games');
-    if (!host) return false;
+    if (anchor?.parentElement) {
+      if (panel.nextElementSibling !== anchor) anchor.before(panel);
+    } else if (host) {
+      if (!panel.isConnected) host.prepend(panel);
+    } else {
+      return false;
+    }
     panel.classList.toggle('bbx-dark', BBX_isDark());
-    host.prepend(panel);
     return true;
   }
 
-  function start() {
+  async function start() {
+    settings = await BB.settings();
+    applyReplace();
+    await restoreFilters();
+    renderRecent();
     loadStats();
-    // Load servers only once the Servers tab is opened, to spare Roblox's rate limits.
-    const tabLink = document.querySelector('#tab-game-instances');
-    const host = document.querySelector('#game-instances');
-    const visible = () => host && host.offsetParent !== null;
-    if (visible()) loadServers();
-    else {
-      tabLink?.addEventListener('click', () => { if (!servers.length && !loadingServers) loadServers(); }, { once: true });
-      const iv = setInterval(() => {
-        if (visible()) {
-          clearInterval(iv);
-          if (!servers.length && !loadingServers) loadServers();
-        }
-      }, 1500);
-    }
+    setInterval(() => { if (!document.hidden) loadStats(); }, 30000);
+    showTab('servers');
+    loadFriendsInServers();
   }
 
-  if (mount()) start();
-  else {
-    const obs = new MutationObserver(() => {
-      if (mount()) {
-        obs.disconnect();
-        start();
-      }
-    });
+  let started = false;
+  const tryMount = () => {
+    if (!mount()) return false;
+    if (!started) {
+      started = true;
+      start();
+    }
+    return true;
+  };
+  if (!tryMount()) {
+    const obs = new MutationObserver(() => { if (tryMount()) obs.disconnect(); });
     obs.observe(document.body, { childList: true, subtree: true });
     setTimeout(() => obs.disconnect(), 60000);
   }
-  setInterval(() => { if (!panel.isConnected) mount(); }, 2000);
+  // Roblox renders its server list late and re-renders it; keep the panel next to it.
+  setInterval(() => { if (started) mount(); }, 1500);
 })();

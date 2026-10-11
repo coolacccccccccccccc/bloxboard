@@ -23,11 +23,22 @@ ITEMS = {
 }
 
 def j(route, obj, status=200):
-  route.fulfill(status=status, content_type='application/json', body=json.dumps(obj), headers={'access-control-allow-origin': '*'})
+  origin = route.request.headers.get('origin') or '*'
+  route.fulfill(status=status, content_type='application/json', body=json.dumps(obj),
+    headers={'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true'})
+
+HOME_HTML = '''<!doctype html><html><head><title>Home</title></head><body class="light-theme" style="background:#fff;font-family:sans-serif">
+<div id="content"><div id="HomeContainer"><h1>Home</h1><div class="friends-section"><div class="friend-carousel-container">Friends carousel (mock)</div></div>
+<div class="game-sort">Recommended for you (mock)</div></div></div></body></html>'''
 
 def handler(route):
   url = route.request.url
-  body = route.request.post_data_json if route.request.method == 'POST' else None
+  if url.rstrip('/') == 'https://www.roblox.com/home':
+    return route.fulfill(status=200, content_type='text/html', body=HOME_HTML)
+  try:
+    body = route.request.post_data_json if route.request.method == 'POST' else None
+  except Exception:
+    body = None
   if 'rolimons.com/itemapi/itemdetails' in url: return j(route, {'success': True, 'items': ITEMS})
   if 'api.rolimons.com/players' in url: return j(route, {'success': True, 'value': 184500, 'rap': 121300, 'privacy_enabled': False})
   if 'users/authenticated' in url: return j(route, ME)
@@ -94,7 +105,16 @@ with sync_playwright() as p:
     page.wait_for_timeout(9000)
     print('game panel text:', page.inner_text('#bbx-game')[:500].replace('\n', ' | '))
     page.locator('#bbx-game').screenshot(path=f'{OUT}/game-panel.png')
-    page.click('#bbx-game .bbx-tab:nth-child(2)')
+    page.select_option('#bbx-game select[data-key=sort]', 'least')
+    page.fill('#bbx-game input[data-key=max]', '30')
+    page.select_option('#bbx-game select[data-key=ping]', '100')
+    page.wait_for_timeout(500)
+    print('after filters:', page.inner_text('#bbx-game .bbx-toolbar').replace('\n', ' | '))
+    page.locator('#bbx-game').screenshot(path=f'{OUT}/game-filters.png')
+    page.click('#bbx-game .bbx-tab:nth-child(2)'); page.wait_for_timeout(500)
+    print('recent tab:', page.inner_text('#bbx-game .bbx-view:not([hidden])')[:200])
+    page.select_option('#bbx-game select[data-key=max]', '') if False else None
+    page.click('#bbx-game .bbx-tab:nth-child(3)')
     page.fill('#bbx-game input.bbx-input.bbx-grow', 'Roblox')
     page.click('#bbx-game form button[type=submit]')
     page.wait_for_timeout(15000)
@@ -115,6 +135,18 @@ with sync_playwright() as p:
     print('profile problem:', e)
   page2.screenshot(path=f'{OUT}/profile.png')
 
+  # ---- real catalog page of a limited ----
+  page3 = ctx.new_page(); watch(page3, 'item')
+  page3.goto('https://www.roblox.com/catalog/1365767/Valkyrie-Helm', wait_until='domcontentloaded', timeout=60000)
+  try:
+    page3.wait_for_selector('#bbx-item', timeout=25000, state='attached')
+    page3.evaluate("document.getElementById('cookie-banner-wrapper')?.remove()")
+    page3.wait_for_timeout(1500)
+    print('item card:', page3.inner_text('#bbx-item').replace('\n', ' | '), '| floating:', page3.eval_on_selector('#bbx-item', 'e => e.classList.contains("bbx-floating")'))
+  except Exception as e:
+    print('item problem:', e)
+  page3.screenshot(path=f'{OUT}/item.png')
+
   # ---- dashboard with mocked APIs ----
   sw.evaluate('''() => {
     const games = {101: {name: 'Blox Fruits', placeId: 2753915549}, 102: {name: 'Adopt Me!', placeId: 920587237}, 103: {name: 'Doors', placeId: 6516141723}, 100: {name: 'Brookhaven RP', placeId: 4924922222}};
@@ -126,9 +158,28 @@ with sync_playwright() as p:
       if (i % 6 === 5) continue;
       playtime[k] = {101: (i * 37) % 140 + 20, 102: (i * 13) % 50, 103: i % 3 ? 0 : 45};
     }
-    return chrome.storage.local.set({playtime, games, currentGame: {universeId: 101, since: Date.now()}});
+    const recentServers = [
+      {gameId: 'f038d614-34b8-4fdf-a97e-2d5289c7567c', placeId: 2753915549, rootPlaceId: 2753915549, universeId: 101, name: 'Blox Fruits', joinedAt: Date.now() - 7200e3, lastSeen: Date.now() - 1800e3, minutes: 84},
+      {gameId: '58ec10a5-ceec-4330-8248-9086931590e9', placeId: 920587237, rootPlaceId: 920587237, universeId: 102, name: 'Adopt Me!', joinedAt: Date.now() - 86400e3, lastSeen: Date.now() - 80000e3, minutes: 35}];
+    return chrome.storage.local.set({playtime, games, recentServers, currentGame: {universeId: 101, since: Date.now()}});
   }''')
   ctx.route(re.compile(r'https://([a-z]+\.)?(roblox|rolimons)\.com/.*'), handler)
+  home = ctx.new_page(); watch(home, 'home')
+  home.goto('https://www.roblox.com/home')
+  try:
+    home.wait_for_selector('#bbx-home .bbx-home-card', timeout=15000)
+    home.wait_for_timeout(1000)
+    print('home row:', home.inner_text('#bbx-home').replace('\n', ' | ')[:300], '| after friends:', home.evaluate("document.querySelector('#bbx-home').previousElementSibling?.className"))
+    home.click('#bbx-home .bbx-seg button >> nth=2'); home.wait_for_timeout(800)
+  except Exception as e:
+    print('home problem:', e)
+  try:
+    print('home html:', home.evaluate("document.body.innerHTML.slice(0, 600)"))
+    home.screenshot(path=f'{OUT}/home.png', full_page=True)
+  except Exception as e:
+    print('home screenshot problem:', e)
+  print('\n'.join(x for x in errors if x.startswith('[home]')) or 'no home errors')
+
   dash = ctx.new_page(); watch(dash, 'dash')
   for route_name in ['home', 'playtime', 'friends', 'trades', 'items', 'lookup/tobi_rbx', 'settings']:
     dash.goto(f'chrome-extension://{ext_id}/dashboard/dashboard.html#{route_name}')

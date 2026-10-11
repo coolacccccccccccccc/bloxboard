@@ -142,6 +142,17 @@ pages.home = async (root) => {
       card('Most played this week', await topGamesList(week.top, 5))),
   ));
 
+  const recent = (await BB.get('recentServers', [])).slice(0, 6);
+  if (recent.length) {
+    const icons = await BB.gameIcons(recent.map(r => r.universeId)).catch(() => new Map());
+    root.querySelector('.cols-2').append(card('Recent servers', el('div', { class: 'list' }, recent.map(r => el('div', { class: 'item' },
+      img('icon', icons.get(r.universeId)),
+      el('div', { class: 'grow' },
+        el('div', { class: 'item-title ellipsis', text: r.name }),
+        el('div', { class: 'small muted', text: `Left ${BB.ago(r.lastSeen)} · ${duration(r.minutes)} in this server` })),
+      el('a', { class: 'btn sm ghost', href: BB.joinUrl(r.placeId, r.gameId), text: 'Rejoin' }))))));
+  }
+
   // Friends online loads last; it's the slowest call.
   const friendsCard = card('Friends playing now', loading('Loading friends'));
   root.querySelector('.cols-2').append(friendsCard);
@@ -237,37 +248,6 @@ pages.friends = async (root) => {
 
 // ---------- trades ----------
 
-async function tradeDetails(id) {
-  try {
-    const t = await api(`https://trades.roblox.com/v2/trades/${id}`, { retries: 2 });
-    const side = o => ({
-      user: o.user,
-      robux: o.robux || 0,
-      items: (o.items || []).map(i => ({ assetId: Number(i.itemTarget?.targetId), name: i.itemName, serial: i.serialNumber, rap: i.recentAveragePrice })),
-    });
-    if (t.participantAOffer) return [side(t.participantAOffer), side(t.participantBOffer)];
-  } catch (e) {
-    if (e.status === 401) throw e;
-  }
-  const t = await api(`https://trades.roblox.com/v1/trades/${id}`, { retries: 2 });
-  return (t.offers || []).map(o => ({
-    user: o.user,
-    robux: o.robux || 0,
-    items: (o.userAssets || []).map(a => ({ assetId: a.assetId, name: a.name, serial: a.serialNumber, rap: a.recentAveragePrice })),
-  }));
-}
-
-function sideWorth(side, values) {
-  let value = 0;
-  let rap = 0;
-  for (const it of side.items) {
-    const row = values[it.assetId];
-    value += BB.itemWorth(row) || it.rap || 0;
-    rap += row ? Math.max(row[2], 0) : (it.rap || 0);
-  }
-  return { value, rap, robux: side.robux };
-}
-
 pages.trades = async (root) => {
   let kind = 'Inbound';
   const body = el('div', { class: 'card' });
@@ -303,11 +283,11 @@ pages.trades = async (root) => {
 
     const load = () => loaded ??= (async () => {
       try {
-        const sides = await tradeDetails(t.id);
+        const sides = await BB.tradeDetails(t.id);
         const mySide = sides.find(s => s.user?.id === me.id) || sides[0];
         const theirSide = sides.find(s => s !== mySide) || sides[1];
-        const give = sideWorth(mySide, values);
-        const get = sideWorth(theirSide, values);
+        const give = BB.sideWorth(mySide, values);
+        const get = BB.sideWorth(theirSide, values);
         const giveTotal = give.value + give.robux * 0.7;
         const getTotal = get.value + get.robux * 0.7;
         const diff = getTotal - giveTotal;
@@ -514,7 +494,10 @@ pages.settings = async (root) => {
       toggle('trackPlaytime', 'Track playtime', 'Checks your status once a minute while the browser is open.'),
       toggle('notifyTrades', 'Trade notifications', 'Desktop notification when a new trade request arrives.'),
       toggle('notifyFriends', 'Friend notifications', 'Notify when friends start playing a game.'),
-      toggle('regionLookup', 'Server regions', 'Lets "Detect regions" ask Roblox where servers are. Uses ipwho.is for the location.')),
+      toggle('regionLookup', 'Server regions', 'Lets "Detect regions" ask Roblox where servers are. Uses ipwho.is for the location.'),
+      toggle('replaceServerList', 'Replace Roblox\'s server list', 'Hide Roblox\'s own public server list and filters on game pages; Bloxboard\'s list takes its place.'),
+      toggle('homeMostPlayed', 'Most played on the Roblox home page', 'Adds a row with your most played games and your time in each.'),
+      el('p', { class: 'small muted', style: { marginTop: '8px' }, text: s.preferredRegion ? `Preferred region: ${s.preferredRegion}. Change it with the Region filter on any game page.` : 'Pick a region in the Region filter on a game page and it becomes your preferred region everywhere.' })),
     card('Your data',
       el('p', { class: 'muted', text: `${days} day${days === 1 ? '' : 's'} of playtime saved.` }),
       el('div', { class: 'row wrap', style: { marginTop: '12px' } },

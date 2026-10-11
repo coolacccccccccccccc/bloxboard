@@ -131,3 +131,69 @@
   .bbx-row .bbx-hide-sm, .bbx-row .bbx-region { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .bbx-meter i { transition: none; } }
+
+/* ---------- v0.2: replace Roblox's public server list ---------- */
+html.bbx-replace-servers [id*="public-running-games"] { display: none !important; }
+
+.bbx-head-links { display: flex; gap: 14px; margin-left: auto; }
+.bbx-filters {
+  display: grid; gap: 8px 10px; margin: 0 0 10px;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  padding: 10px; border-radius: 8px; background: var(--bbx-sunk);
+}
+.bbx-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.bbx-field > span { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--bbx-muted); }
+.bbx-field .bbx-input { width: 100%; background: var(--bbx-bg); }
+.bbx-range { display: flex; align-items: center; gap: 4px; }
+.bbx-num-input { min-width: 0; }
+.bbx-checks { flex-direction: column; justify-content: flex-end; gap: 4px; }
+.bbx-checks .bbx-check { font-size: 12px; }
+
+.bbx-row { grid-template-columns: minmax(150px, 1.6fr) 64px 56px minmax(90px, 1fr) auto; }
+.bbx-row-friends { background: color-mix(in srgb, var(--bbx-good) 7%, transparent); }
+.bbx-row-actions { display: flex; gap: 6px; }
+.bbx-fill-top { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.bbx-faces-sm { display: inline-flex; align-items: center; }
+.bbx-faces-sm img { width: 20px; height: 20px; margin-left: -5px; border-width: 1.5px; }
+.bbx-faces-sm img:first-child { margin-left: 0; }
+.bbx-tag {
+  display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 999px;
+  background: var(--bbx-sunk); color: var(--bbx-muted); font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+.bbx-tag-good { background: color-mix(in srgb, var(--bbx-good) 15%, transparent); color: var(--bbx-good); }
+.bbx-tag-bad { background: color-mix(in srgb, var(--bbx-bad) 15%, transparent); color: var(--bbx-bad); }
+.bbx-tag-warn { background: color-mix(in srgb, #e0a100 18%, transparent); color: #b88400; }
+.bbx-row-recent { grid-template-columns: 1fr auto auto; }
+.bbx-mutuals { display: inline-flex; align-items: center; gap: 2px; }
+
+/* ---------- home: most played ---------- */
+.bbx-home { margin: 0 0 24px; padding: 16px; }
+.bbx-home-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 12px; }
+.bbx-home-title { margin: 0; font-size: 20px; font-weight: 800; color: var(--bbx-fg); }
+.bbx-seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 8px; background: var(--bbx-sunk); }
+.bbx-seg button {
+  border: 0; background: none; cursor: pointer; padding: 4px 10px; border-radius: 6px;
+  color: var(--bbx-muted); font: inherit; font-size: 12px; font-weight: 700;
+}
+.bbx-seg button[aria-pressed="true"] { background: var(--bbx-bg); color: var(--bbx-fg); box-shadow: 0 1px 2px rgba(0,0,0,.1); }
+.bbx-home-row { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; }
+.bbx-home-card { flex: 0 0 150px; scroll-snap-align: start; color: var(--bbx-fg) !important; text-decoration: none !important; }
+.bbx-home-thumb { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--bbx-sunk); }
+.bbx-home-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bbx-home-play {
+  position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center;
+  width: 32px; height: 32px; border-radius: 50%; background: var(--bbx-good); color: #fff; font-size: 13px;
+  opacity: 0; transform: translateY(4px); transition: opacity .15s, transform .15s; cursor: pointer;
+}
+.bbx-home-card:hover .bbx-home-play, .bbx-home-card:focus-visible .bbx-home-play { opacity: 1; transform: none; }
+.bbx-home-name { margin-top: 6px; font-size: 14px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bbx-home-time { font-size: 12px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.bbx-home-empty { padding: 8px 0; }
+@media (hover: none) { .bbx-home-play { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .bbx-home-play { transition: none; } }
+
+@media (max-width: 640px) {
+  .bbx-row { grid-template-columns: 1fr 56px auto; }
+  .bbx-row-recent { grid-template-columns: 1fr auto; }
+  .bbx-row-recent .bbx-tag { display: none; }
+}

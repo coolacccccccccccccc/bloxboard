@@ -80,6 +80,9 @@ var BB = (() => {
     notifyTrades: true,
     notifyFriends: false,
     regionLookup: true,
+    replaceServerList: true,
+    homeMostPlayed: true,
+    preferredRegion: '',
   };
 
   async function get(key, fallback) {
@@ -174,6 +177,52 @@ var BB = (() => {
     return universeId;
   }
 
+  async function friendIds(userId, max = 1000) {
+    const ids = [];
+    let cursor = '';
+    do {
+      const page = await api(`https://friends.roblox.com/v1/users/${userId}/friends/find?limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+      for (const f of page.PageItems || []) ids.push(f.id);
+      cursor = page.NextCursor;
+    } while (cursor && ids.length < max);
+    return ids;
+  }
+
+  // Trade sides normalized from the v2 API (falls back to v1).
+  async function tradeDetails(id) {
+    try {
+      const t = await api(`https://trades.roblox.com/v2/trades/${id}`, { retries: 2 });
+      const side = o => ({
+        user: o.user,
+        robux: o.robux || 0,
+        items: (o.items || []).map(i => ({ assetId: Number(i.itemTarget?.targetId), name: i.itemName, serial: i.serialNumber, rap: i.recentAveragePrice })),
+      });
+      if (t.participantAOffer) return [side(t.participantAOffer), side(t.participantBOffer)];
+    } catch (e) {
+      if (e.status === 401) throw e;
+    }
+    const t = await api(`https://trades.roblox.com/v1/trades/${id}`, { retries: 2 });
+    return (t.offers || []).map(o => ({
+      user: o.user,
+      robux: o.robux || 0,
+      items: (o.userAssets || []).map(a => ({ assetId: a.assetId, name: a.name, serial: a.serialNumber, rap: a.recentAveragePrice })),
+    }));
+  }
+
+  function sideWorth(side, values) {
+    let value = 0;
+    let rap = 0;
+    for (const it of side.items) {
+      const row = values[it.assetId];
+      value += itemWorth(row) || it.rap || 0;
+      rap += row ? Math.max(row[2], 0) : (it.rap || 0);
+    }
+    return { value, rap, robux: side.robux, total: value + side.robux * 0.7 };
+  }
+
+  // Shareable web link that opens Roblox straight into a server.
+  const inviteUrl = (placeId, gameId) => `https://www.roblox.com/games/start?placeId=${placeId}&gameInstanceId=${gameId}`;
+
   const joinUrl = (placeId, gameId) => gameId
     ? `roblox://experiences/start?placeId=${placeId}&gameInstanceId=${gameId}`
     : `roblox://experiences/start?placeId=${placeId}`;
@@ -231,6 +280,27 @@ var BB = (() => {
     return m ? `${h}h ${m}m` : `${h}h`;
   }
 
+  function ago(ts) {
+    const s = Math.max(0, (Date.now() - new Date(ts)) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+    if (s < 86400 * 30) return `${Math.floor(s / 86400)}d ago`;
+    return new Date(ts).toLocaleDateString();
+  }
+
+  async function topGames(days) {
+    const [playtime, games] = await Promise.all([get('playtime', {}), get('games', {})]);
+    const keys = days == null ? Object.keys(playtime) : Array.from({ length: days }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return dayKey(d);
+    });
+    const per = new Map();
+    for (const k of keys) for (const [u, m] of Object.entries(playtime[k] || {})) per.set(u, (per.get(u) || 0) + m);
+    return [...per.entries()].sort((a, b) => b[1] - a[1]).map(([universeId, minutes]) => ({ universeId: Number(universeId), minutes, ...games[universeId] }));
+  }
+
   const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
   function el(tag, attrs = {}, ...children) {
@@ -252,8 +322,8 @@ var BB = (() => {
 
   return {
     sleep, chunk, api, pool, get, set, settings, DEFAULT_SETTINGS,
-    me, resolveUser, users, presence, headshots, gameIcons, itemThumbs, universeOf, joinUrl,
+    me, resolveUser, users, presence, headshots, gameIcons, itemThumbs, universeOf, joinUrl, inviteUrl, friendIds, tradeDetails, sideWorth,
     values, playerValue, itemWorth, DEMAND,
-    num, duration, dayKey, el,
+    num, duration, dayKey, ago, topGames, el,
   };
 })();

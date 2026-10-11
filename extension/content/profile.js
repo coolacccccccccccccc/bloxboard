@@ -14,11 +14,29 @@
 
   const chip = (label, value, title) => el('span', { class: 'bbx-chip', title }, el('b', { text: value }), ` ${label}`);
 
+  async function lastOnline() {
+    try {
+      const res = await BB.api('https://presence.roblox.com/v1/presence/last-online', { method: 'POST', body: { userIds: [USER_ID] }, retries: 1 });
+      return res?.lastOnlineTimestamps?.[0]?.lastOnline || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function mutuals() {
+    const me = await BB.me().catch(() => null);
+    if (!me || me.id === USER_ID) return null;
+    const [mine, theirs] = await Promise.all([BB.friendIds(me.id), BB.friendIds(USER_ID)]);
+    const set = new Set(mine);
+    return theirs.filter(id => set.has(id));
+  }
+
   async function load() {
-    const [user, value, pres] = await Promise.all([
+    const [user, value, pres, seen] = await Promise.all([
       BB.api(`https://users.roblox.com/v1/users/${USER_ID}`).catch(() => null),
       BB.playerValue(USER_ID).catch(() => null),
       BB.presence([USER_ID]).then(p => p.get(USER_ID)).catch(() => null),
+      lastOnline(),
     ]);
     const status = ['Offline', 'Online', 'In game', 'In Studio', 'Invisible'][pres?.userPresenceType ?? 0];
     const out = [];
@@ -33,10 +51,28 @@
       out.push(chip('joined', created.toLocaleDateString(), `${years} years ago`));
     }
     if (pres) out.push(chip(pres.userPresenceType === 2 && pres.lastLocation ? `· ${pres.lastLocation}` : '', status));
+    if (seen && !(pres?.userPresenceType >= 1)) out.push(chip('', `Last online ${BB.ago(seen)}`, new Date(seen).toLocaleString()));
     if (pres?.userPresenceType === 2 && pres.gameId && pres.placeId) {
       out.push(el('a', { class: 'bbx-btn bbx-sm', href: BB.joinUrl(pres.placeId, pres.gameId), text: 'Join' }));
     }
-    items.replaceChildren(...(out.length ? out : [el('span', { class: 'bbx-muted', text: 'No extra info available.' })]));
+    const mutualSlot = el('span', { class: 'bbx-chip bbx-muted', text: 'Mutual friends…' });
+    out.push(mutualSlot);
+    items.replaceChildren(...out);
+
+    try {
+      const ids = await mutuals();
+      if (!ids) return mutualSlot.remove();
+      if (!ids.length) return mutualSlot.replaceChildren(el('b', { text: '0' }), ' mutual friends');
+      const [names, shots] = await Promise.all([BB.users(ids.slice(0, 50)), BB.headshots(ids.slice(0, 5))]);
+      const list = ids.map(id => names.get(id)?.displayName).filter(Boolean);
+      mutualSlot.className = 'bbx-chip bbx-mutuals';
+      mutualSlot.title = list.join(', ') + (ids.length > list.length ? ` +${ids.length - list.length} more` : '');
+      mutualSlot.replaceChildren(
+        el('span', { class: 'bbx-faces bbx-faces-sm' }, ids.slice(0, 5).map(id => el('img', { src: shots.get(id) || undefined, alt: '' }))),
+        el('b', { text: ` ${ids.length}` }), ` mutual friend${ids.length === 1 ? '' : 's'}`);
+    } catch {
+      mutualSlot.remove();
+    }
   }
 
   function mount() {

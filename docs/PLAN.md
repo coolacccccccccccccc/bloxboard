@@ -11,71 +11,89 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [x] Signing key `keys/bloxboard.pem` (backup in `/root/backups/bloxboard-signing-key.pem`). Losing it means a new extension ID and no updates
 - [x] Build script `tools/build.py`: syntax check, signed .crx + .zip, update feed, website
 - [x] Deploy script `tools/deploy.sh`: website to `bloxboard.enesserver.dev` (Caddy CT103, `/var/www/bloxboard`)
-- [x] Test script `tools/test/run.sh`: real Chromium in the Playwright container on CT105, real roblox.com logged out, mocked APIs for the dashboard
-- [x] Website: download page, install guide, features, changelog, this plan (built, not online yet)
-- [ ] **You:** add the Caddy site for `bloxboard.enesserver.dev` (auto mode blocked me; steps in `README.md`), then run `tools/deploy.sh`
+- [x] Test script `tools/test/run.sh`: real Chromium in the Playwright container on CT105, real roblox.com logged out, mocked APIs for the dashboard and home page
+- [x] Website: download page, install guide, features, changelog, this plan
 - [x] Auto-update feed `updates.xml` + `update_url` in the manifest
-- [ ] Decide: GitHub repo (private or public) or keep it local only
-- [ ] Decide: website public, or only on LAN/Tailscale / behind Authentik
+- [x] Decided: website is public
+- [~] Website live at `bloxboard.enesserver.dev` (Caddy site block)
+- [x] Decided: GitHub repo
+- [ ] **You:** create the empty repo on GitHub, then I push to it
 
-## 1. v0.1 shipped (needs your logged-in test)
+## 1. v0.1 (tested by you, logged in)
 
 - [x] Game page panel: like ratio, players, visits, favorites, last update, your playtime
-- [x] Server browser: sort by players or ping, hide full, Join per server, Join smallest
-- [x] Server regions via gamejoin + ipwho.is (on demand, 40 at a time)
-- [x] Player finder: presence first, then repeated token scans (from RoSearcher 3.0)
+- [x] Server browser with Join per server
+- [x] Server regions via gamejoin + ipwho.is (confirmed working logged in)
+- [x] Player finder: presence first, then repeated token scans
 - [x] Profile bar: Rolimons value and RAP, join date, status, Join
 - [x] Dashboard: Home, Playtime, Friends, Trades, Items & values, Player lookup, Settings
 - [x] Background: playtime every minute, trade notifications, optional friend notifications
 - [x] Light and dark mode, phone-width layout
-- [ ] **You:** install the .crx in Helium. Does it install, or does it need Load unpacked?
-- [ ] **You:** logged in, open a game, Servers tab: do regions show up?
-- [ ] **You:** player finder on a friend (instant) and on a stranger (scan)
-- [ ] **You:** dashboard Home, Friends, Trades with real data: anything broken or ugly?
-- [ ] **You:** play 10 minutes, then check that Playtime counted it
-- [ ] **You:** does a trade notification pop up?
-- [ ] Fix whatever the logged-in test turns up (0.1.x)
+- [x] Installs in Helium and works logged in
 
-## 2. Server tools (RoPro Plus parity)
+## 2. v0.2 server tools (RoPro free + Plus parity)
 
-- [ ] Region filter remembers your favorite region per game
-- [ ] "Join best server" picks by region + ping + free slots
-- [ ] Share-a-server link: `bloxboard.enesserver.dev/join?place=…&id=…` opens Roblox straight into that server
-- [ ] Server history: servers you joined, with time, so you can rejoin
-- [ ] Friends-in-server marker in the server list
-- [ ] Server size filter (e.g. 1–5 players) and "newest server" heuristic
+- [x] Replaces Roblox's own public server list and filter bar (toggle "Show Roblox list")
+- [x] Filters: sort (most, fewest, ping, FPS, free slots, friends first), region, player count min–max, free slots, max ping, min FPS, hide full, friends only
+- [x] Preferred region: the Region filter is remembered for every game and auto-detects regions
+- [x] Join best (first server matching your filters with room)
+- [x] Random server hop
+- [x] Invite link to any server (copies an official roblox.com link that opens straight into that server)
+- [x] Friends-in-server marker with their avatars
+- [x] Recent servers: servers you played in, with time, Rejoin, and whether it's still running
+- [x] "Been here" tag on servers you've played in
+- [x] Load all servers (stops at 3000, can be stopped)
+- [x] Live like/dislike counters (refresh every 30 s)
+- [ ] **You:** check that Roblox's own list is hidden and the panel sits in its place
+- [ ] World map view of server regions (pick a region on the map)
+- [ ] Server uptime (oldest/newest): Roblox doesn't expose it. Needs our own "first seen" tracking, best with the sync server (section 8)
 - [ ] Cache regions per server for 10 minutes so re-opening a game doesn't re-ask Roblox
 - [ ] Rate-limit guard for the Roblox API changes of 19 Oct 2026 (central request queue, backoff)
 
-## 3. Trading (RoPro Rex parity)
+## 3. Home page and games
 
-- [ ] Values shown inside Roblox's own trade window (give, get, win or loss)
-- [ ] Lowball warning before you accept or send a trade (value and % thresholds you set)
-- [ ] Projected, hyped and low-demand warnings on every item in a trade
-- [ ] Trade history analytics: profit over time, best and worst trades, chart
-- [ ] Item value change alerts for items you own
-- [ ] Wishlist with price alerts (resale price drops below your target)
-- [ ] Item page extras: value, demand, trend, projected flag, owners
-- [ ] Never auto-accept or auto-send trades (Roblox ToS). Only show and warn
-
-## 4. Profiles and friends
-
-- [ ] Mutual friends on someone's profile
-- [ ] Your private notes on a player (stored locally)
-- [ ] Friend log: who added or removed you, and when (dashboard)
-- [ ] Friends' online history chart (when your friends are usually on)
-- [ ] Best friends pinned to the top with notifications only for them
-
-## 5. Games and discovery
-
-- [ ] Playtime shown on game cards across roblox.com
+- [x] "Most played" row on roblox.com/home with time played, past week / month / all time
+- [ ] **You:** check where the row lands on the real home page
+- [ ] Playtime label on game cards across roblox.com
+- [ ] Quick search & quick play in the navbar (type a game, press Play)
 - [ ] Random game button with filters (genre, player count, like ratio)
 - [ ] Game page: badge progress (which badges you have and how rare they are)
 - [ ] Favorites manager in the dashboard (sort, search, unfavorite dead games)
 - [ ] Game update tracker: notify when a favorite game updates
 
+## 4. Trading (RoPro Plus + Rex parity)
+
+- [x] Trade notifications show the values: you give, you get, win or loss in %
+- [x] Item info card on catalog pages: value, RAP, demand, trend, projected / hyped / rare
+- [x] Trades page in the dashboard with values and win/loss
+- [ ] Values shown inside Roblox's own trade window, updating as you add items (trade calculator)
+- [ ] Decline or cancel a trade straight from the notification
+- [ ] Lowball warning before you accept or send a trade (value and % thresholds you set)
+- [ ] Outbound trade protection: warn before sending a trade you'd lose on
+- [ ] Auto-decline bad inbound trades by your rules (off by default, only declines, never accepts)
+- [ ] Quick limited search in the navbar
+- [ ] Advanced item search inside the trade window
+- [ ] Item value graphs (value and RAP history) on the item card
+- [ ] Trade history analytics: profit over time, best and worst trades, chart
+- [ ] Item value change alerts for items you own
+- [ ] Wishlist with price alerts (resale price drops below your target)
+- [ ] Never auto-accept or auto-send trades (Roblox ToS). Only show, warn and decline
+
+## 5. Profiles and friends
+
+- [x] Account value on profiles
+- [x] Mutual friends on profiles (count, avatars, names on hover)
+- [x] Last online on profiles (when Roblox still returns it)
+- [ ] More mutuals on the friends page
+- [ ] Your private notes on a player (stored locally)
+- [ ] Friend log: who added or removed you, and when (dashboard)
+- [ ] Friends' online history chart (when your friends are usually on)
+- [ ] Best friends pinned to the top with notifications only for them
+- [ ] Profile likes and Discord tag (RoPro does this with its own server; would need the sync server)
+
 ## 6. Niche dashboard
 
+- [x] Recent servers on the dashboard home
 - [ ] Robux page: spending and earnings history from the transactions API, chart per month, top purchases
 - [ ] Group page: group funds and payouts for groups you own
 - [ ] Account page: account age, badges count, collectibles count, "year in Roblox" style summary
@@ -84,30 +102,63 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [ ] Customizable Home (pick and order the cards)
 - [ ] Export everything to JSON or CSV
 
-## 7. Avatar
+## 7. Avatar and themes
 
-- [ ] Outfit sandbox: try items on your avatar before buying
-- [ ] Quick outfit switcher in the dashboard
+- [ ] Avatar sandbox: try any item on your avatar without owning it
+- [ ] Save sandbox outfits
+- [ ] Quick equip / unequip in the avatar editor
+- [ ] Advanced body type editor (exact sliders)
+- [ ] Avatar editor look: compact layout, bigger item grid
+- [ ] Themes for roblox.com (colors, backgrounds), shareable as a code
 - [ ] Cheapest-copy finder for an outfit
 
 ## 8. Infrastructure on the homelab
 
 - [ ] Optional sync server (small container) so playtime and settings follow you between PCs. Private token, your data only
-- [ ] Shared region cache on the server so regions load instantly
-- [ ] Release flow: `build.py --bump` → test → deploy, with the changelog shown on the site
+- [ ] Shared region cache and server "first seen" times (enables uptime filters)
+- [x] Release flow: `build.py --bump` → test → deploy, with the changelog shown on the site
 - [ ] Uptime check for `bloxboard.enesserver.dev` in the nightly homelab check
 
 ## 9. Quality
 
-- [ ] Mock-API test suite for every dashboard page (extend `tools/test`)
+- [x] Mock-API test suite for every dashboard page and the home row (`tools/test`)
 - [ ] Logged-in smoke test you can run with your own browser profile
 - [ ] Error reporting page in Settings (last 50 errors, copy button)
 - [ ] Accessibility pass: keyboard-only use, contrast, screen reader labels
 - [ ] Performance: Rolimons values cached, no request storms on roblox.com
 
+## RoPro feature check
+
+Every RoPro feature from ropro.io/features, and where it stands in Bloxboard.
+
+- [x] Track playtime by game
+- [x] Most played games on the home page
+- [x] Recent servers you've left
+- [x] Hop to a random server
+- [x] Filter servers by player count (smallest first, not full, custom count)
+- [x] Invite link to any server
+- [x] Preferred server location
+- [x] Live like and dislike counters
+- [x] Mutual friends and last online on profiles
+- [x] Account value on profiles
+- [x] Trade notifier with value calculator
+- [x] Trade win/loss preview (dashboard)
+- [x] Item info card
+- [ ] Preferred location on a world map
+- [ ] Oldest / newest server filters (needs uptime tracking)
+- [ ] Quick search & quick play
+- [ ] Trade value calculator inside the trade window
+- [ ] Item search in trades, quick limited search in the navbar
+- [ ] Auto-decline bad trades, outbound trade protection
+- [ ] Decline/cancel from the trade notification
+- [ ] Avatar sandbox, saved outfits, quick equip, body type editor, editor look
+- [ ] Themes
+- [ ] More mutuals on the friends page
+- [ ] Profile likes, Discord tag, item comments, Trade Board (all run on RoPro's own server; possible later with our sync server)
+
 ## Rules we stick to
 
-- Read-only towards Roblox, except joining servers. No trading bots, no auto-accept, no spam
+- Read-only towards Roblox, except joining servers and (opt-in) declining trades. No trading bots, no auto-accept, no spam
 - Respect rate limits; back off on 429 instead of retrying hard
 - No RoPro code, names or artwork
 - Data stays in the browser unless the optional sync server is turned on

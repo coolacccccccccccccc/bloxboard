@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bloxboard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Free Roblox companion: server browser with regions, player finder, playtime, trade values, friends and a dashboard.",
   "icons": {
     "16": "icons/16.png",
@@ -53,6 +53,36 @@
         "lib.js",
         "content/common.js",
         "content/profile.js"
+      ],
+      "css": [
+        "content/panel.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.roblox.com/home*",
+        "https://www.roblox.com/*/home*"
+      ],
+      "js": [
+        "lib.js",
+        "content/common.js",
+        "content/home.js"
+      ],
+      "css": [
+        "content/panel.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.roblox.com/catalog/*",
+        "https://www.roblox.com/*/catalog/*"
+      ],
+      "js": [
+        "lib.js",
+        "content/common.js",
+        "content/item.js"
       ],
       "css": [
         "content/panel.css"

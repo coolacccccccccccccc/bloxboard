@@ -78,12 +78,27 @@ async function trackPlaytime(userId) {
   await BB.set('playtime', playtime);
 
   const games = await BB.get('games', {});
-  games[p.universeId] = {
-    name: p.lastLocation || games[p.universeId]?.name || `Game ${p.universeId}`,
-    placeId: p.rootPlaceId || p.placeId || games[p.universeId]?.placeId,
-  };
+  const name = p.lastLocation || games[p.universeId]?.name || `Game ${p.universeId}`;
+  const placeId = p.rootPlaceId || p.placeId || games[p.universeId]?.placeId;
+  games[p.universeId] = { name, placeId };
   await BB.set('games', games);
-  await BB.set('currentGame', { universeId: p.universeId, since: (await BB.get('currentGame'))?.universeId === p.universeId ? (await BB.get('currentGame')).since : Date.now() });
+
+  const current = await BB.get('currentGame');
+  await BB.set('currentGame', { universeId: p.universeId, since: current?.universeId === p.universeId ? current.since : Date.now() });
+
+  // Recent servers: one entry per server, newest first.
+  if (p.gameId) {
+    const recent = await BB.get('recentServers', []);
+    const existing = recent.find(r => r.gameId === p.gameId);
+    if (existing) {
+      existing.lastSeen = Date.now();
+      existing.minutes = (existing.minutes || 0) + 1;
+    } else {
+      recent.unshift({ gameId: p.gameId, placeId: p.placeId, rootPlaceId: p.rootPlaceId, universeId: p.universeId, name, joinedAt: Date.now(), lastSeen: Date.now(), minutes: 1 });
+    }
+    recent.sort((a, b) => b.lastSeen - a.lastSeen);
+    await BB.set('recentServers', recent.slice(0, 60));
+  }
 }
 
 async function checkTrades() {
@@ -92,14 +107,35 @@ async function checkTrades() {
   await BB.set('lastInboundCount', count);
   if (last == null || count <= last) return;
 
-  const fresh = count - last;
-  chrome.notifications.create(`trade-${Date.now()}`, {
-    type: 'basic',
-    iconUrl: chrome.runtime.getURL('icons/128.png'),
-    title: fresh === 1 ? 'New trade request' : `${fresh} new trade requests`,
-    message: `You have ${count} inbound trade${count === 1 ? '' : 's'}. Click to see values.`,
-    priority: 1,
-  });
+  const seen = new Set(await BB.get('notifiedTrades', []));
+  const { data } = await BB.api('https://trades.roblox.com/v1/trades/Inbound?limit=10&sortOrder=Desc', { retries: 1 });
+  const fresh = (data || []).filter(t => !seen.has(t.id)).slice(0, 3);
+  const [me, values] = await Promise.all([BB.me(), BB.values().catch(() => ({}))]);
+
+  for (const t of fresh) {
+    seen.add(t.id);
+    let message = 'Click to see the trade.';
+    try {
+      const sides = await BB.tradeDetails(t.id);
+      const mine = sides.find(s => s.user?.id === me.id) || sides[0];
+      const theirs = sides.find(s => s !== mine) || sides[1];
+      const give = BB.sideWorth(mine, values).total;
+      const get = BB.sideWorth(theirs, values).total;
+      const diff = get - give;
+      const pct = give ? Math.round((diff / give) * 100) : 0;
+      message = `You give ${BB.num(Math.round(give))} · you get ${BB.num(Math.round(get))}\n${diff >= 0 ? 'Win' : 'Loss'}: ${diff >= 0 ? '+' : ''}${BB.num(Math.round(diff))} (${pct > 0 ? '+' : ''}${pct}%)`;
+    } catch {
+      // keep the plain message
+    }
+    chrome.notifications.create(`trade-${t.id}`, {
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('icons/128.png'),
+      title: `Trade from ${t.user.displayName}`,
+      message,
+      priority: 1,
+    });
+  }
+  await BB.set('notifiedTrades', [...seen].slice(-200));
 }
 
 async function checkFriends(userId) {
