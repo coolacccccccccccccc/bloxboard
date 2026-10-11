@@ -1,0 +1,1 @@
+{ "name": "bloxboard-tools", "private": true, "dependencies": { "crx3": "^1.1.3" } }

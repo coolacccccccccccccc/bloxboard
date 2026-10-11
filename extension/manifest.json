@@ -1,0 +1,65 @@
+{
+  "manifest_version": 3,
+  "name": "Bloxboard",
+  "version": "0.1.0",
+  "description": "Free Roblox companion: server browser with regions, player finder, playtime, trade values, friends and a dashboard.",
+  "icons": {
+    "16": "icons/16.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "action": {
+    "default_title": "Open Bloxboard",
+    "default_icon": {
+      "16": "icons/16.png",
+      "48": "icons/48.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications",
+    "declarativeNetRequestWithHostAccess"
+  ],
+  "host_permissions": [
+    "https://*.roblox.com/*",
+    "https://www.rolimons.com/*",
+    "https://api.rolimons.com/*",
+    "https://ipwho.is/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.roblox.com/*games/*"
+      ],
+      "js": [
+        "lib.js",
+        "content/common.js",
+        "content/game.js"
+      ],
+      "css": [
+        "content/panel.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.roblox.com/*users/*/profile*"
+      ],
+      "js": [
+        "lib.js",
+        "content/common.js",
+        "content/profile.js"
+      ],
+      "css": [
+        "content/panel.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "update_url": "https://bloxboard.enesserver.dev/updates.xml",
+  "homepage_url": "https://bloxboard.enesserver.dev"
+}

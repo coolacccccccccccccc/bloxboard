@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Bloxboard</title>
+  <meta name="description" content="A free Roblox companion extension: server browser with regions, player finder, playtime, trade values and a dashboard.">
+  <link rel="icon" href="favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="./"><img src="icon.png" alt="">Bloxboard</a>
+      <nav>
+        <a href="#install">Install</a>
+        <a href="#features">Features</a>
+        <a href="plan.html">Plan</a>
+        <a href="#changelog">Changelog</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div>
+        <div class="eyebrow">Free Roblox companion · v{{VERSION}}</div>
+        <h1>Bloxboard</h1>
+        <p class="lead">Server regions, a player finder, playtime stats, trade values and a full dashboard. No subscriptions, no tiers.</p>
+        <div class="actions">
+          <a class="btn" href="download/bloxboard.crx">Download .crx</a>
+          <a class="btn ghost" href="download/bloxboard.zip">Download .zip</a>
+        </div>
+        <p class="meta">v{{VERSION}} · {{CRX_KB}} KB · Chrome, Helium, Edge, Brave</p>
+      </div>
+      <figure class="shot" style="margin:0">
+        <img src="img/dash-home.png" alt="Bloxboard dashboard home: Robux, playtime this week, most played games and friends playing now" width="1360" height="900">
+        <figcaption>Dashboard home, shown with sample data</figcaption>
+      </figure>
+    </section>
+
+    <section class="block" id="install">
+      <h2>Install in Helium</h2>
+      <p class="sub">Bloxboard isn't on the Chrome Web Store, so it installs in developer mode. It takes about a minute.</p>
+      <ol class="steps">
+        <li>Download the <strong>.crx</strong> above.</li>
+        <li>Open <code>helium://extensions</code> and turn on <strong>Developer mode</strong> (top right).</li>
+        <li>Drag the .crx file onto that page and confirm.</li>
+        <li>If it's refused or shows up disabled: unzip the <strong>.zip</strong>, click <strong>Load unpacked</strong> and pick the <code>bloxboard</code> folder.</li>
+      </ol>
+      <p class="meta">Then log in on roblox.com and click the Bloxboard icon in the toolbar to open the dashboard.</p>
+    </section>
+
+    <section class="block" id="features">
+      <h2>What it does</h2>
+      <p class="sub">On roblox.com it adds one tidy panel to game pages and one thin bar to profiles. Everything else lives in its own dashboard tab.</p>
+      <div class="features">
+        <article class="feature"><span class="where">Game page</span><h3>Server browser</h3><p>Sort by players or ping, hide full servers, detect each server's region, and join the smallest server in one click.</p></article>
+        <article class="feature"><span class="where">Game page</span><h3>Player finder</h3><p>Finds friends instantly through their online status. For anyone else it scans servers for their avatar, pass after pass.</p></article>
+        <article class="feature"><span class="where">Game page</span><h3>Game stats</h3><p>Like ratio, players, visits, favorites, last update and how long you've played it.</p></article>
+        <article class="feature"><span class="where">Profile</span><h3>Value at a glance</h3><p>Limiteds value and RAP from Rolimons, join date, status and a Join button when they're in a game.</p></article>
+        <article class="feature"><span class="where">Dashboard</span><h3>Playtime</h3><p>Tracks what you play every minute and charts it per day and per game, for up to 90 days.</p></article>
+        <article class="feature"><span class="where">Dashboard</span><h3>Trades</h3><p>Every inbound, outbound and completed trade with Rolimons values, win or loss, and projected-item warnings.</p></article>
+        <article class="feature"><span class="where">Dashboard</span><h3>Friends</h3><p>Who's online, what they're playing, and a Join button for each.</p></article>
+        <article class="feature"><span class="where">Dashboard</span><h3>Items &amp; lookup</h3><p>Search every limited's value, see your own inventory worth, and look up any player.</p></article>
+        <article class="feature"><span class="where">Background</span><h3>Notifications</h3><p>A desktop notification for new trades, and optionally when friends start playing.</p></article>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Screens</h2>
+      <p class="sub">The dashboard follows your system's light or dark mode. The screenshots use sample data.</p>
+      <div class="gallery">
+        <figure class="shot" style="margin:0"><img src="img/dash-trades.png" alt="Trades page with values and win or loss per trade" loading="lazy"><figcaption>Trades</figcaption></figure>
+        <figure class="shot" style="margin:0"><img src="img/dash-items.png" alt="Items and values table" loading="lazy"><figcaption>Items &amp; values</figcaption></figure>
+        <figure class="shot" style="margin:0"><img src="img/game-panel.png" alt="Server browser panel on a Roblox game page" loading="lazy"><figcaption>Server browser on roblox.com</figcaption></figure>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Good to know</h2>
+      <div class="note"><p><strong>Roblox limits what any finder can see.</strong> Since February 2025, Roblox shows only about 5 random players per server. Friends and players who allow joins are found instantly. Anyone else may take several passes, or may not be found at all.</p></div>
+      <p class="meta">Everything is stored in your own browser. Bloxboard only talks to Roblox, Rolimons (item values) and ipwho.is (server locations).</p>
+    </section>
+
+    <section class="block doc" id="changelog">
+      {{CHANGELOG_HTML}}
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Bloxboard v{{VERSION}}</span>
+      <span>Built {{BUILT}}</span>
+      <span>ID <code>{{EXT_ID}}</code></span>
+      <a href="updates.xml">Update feed</a>
+      <span>Not affiliated with Roblox or RoPro.</span>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Bloxboard plan</title>
+  <link rel="icon" href="favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="./"><img src="icon.png" alt="">Bloxboard</a>
+      <nav>
+        <a href="./#install">Install</a>
+        <a href="./#features">Features</a>
+        <a href="plan.html" aria-current="page">Plan</a>
+        <a href="./#changelog">Changelog</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="block doc" style="border-top:0">
+      <div class="eyebrow">Roadmap · v{{VERSION}}</div>
+      <div class="meter" role="img" aria-label="{{DONE}} done, {{DOING}} in progress, {{TODO}} to do">
+        <i style="flex: {{DONE}}; background: var(--mint)"></i>
+        <i style="flex: {{DOING}}; background: var(--amber)"></i>
+        <i style="flex: {{TODO}}"></i>
+      </div>
+      <div class="legend">
+        <span><span class="dot" style="background:var(--mint)"></span><b>{{DONE}}</b> done ({{PCT}}%)</span>
+        <span><span class="dot" style="background:var(--amber)"></span><b>{{DOING}}</b> in progress</span>
+        <span><span class="dot" style="background:var(--line)"></span><b>{{TODO}}</b> to do</span>
+        <span>Updated {{BUILT}}</span>
+      </div>
+      {{PLAN_HTML}}
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Bloxboard v{{VERSION}}</span>
+      <span>Source of truth: <code>docs/PLAN.md</code></span>
+    </div>
+  </footer>
+</body>
+</html>
