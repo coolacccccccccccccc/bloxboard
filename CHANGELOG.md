@@ -1,5 +1,14 @@
 ## Changelog
 
+### 0.5.0 · 11 October 2026
+
+- Game pages: new Badges tab with your progress, missing badges first and the easiest on top.
+- Dashboard: new Games page with your favorites and played games, sortable, plus a Random game button.
+- Notifications when one of your favorite games updates.
+- Trades → Completed: net profit, wins, best and worst trade.
+- Home: Recent alerts.
+- Settings: Export everything.
+
 ### 0.4.0 · 11 October 2026
 
 - Game cards across roblox.com show your time played.

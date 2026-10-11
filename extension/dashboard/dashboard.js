@@ -153,6 +153,13 @@ pages.home = async (root) => {
       el('a', { class: 'btn sm ghost', href: BB.joinUrl(r.placeId, r.gameId), text: 'Rejoin' }))))));
   }
 
+  const alerts = (await BB.get('notifyLog', [])).slice(0, 6);
+  if (alerts.length) {
+    root.querySelector('.cols-2').append(card('Recent alerts', el('div', { class: 'list' }, alerts.map(a => el('div', { class: 'item' },
+      el('div', { class: 'grow' }, el('div', { class: 'item-title ellipsis', text: a.title }), el('div', { class: 'small muted', style: { whiteSpace: 'pre-line' }, text: a.message })),
+      el('span', { class: 'small muted', text: BB.ago(a.at) }))))));
+  }
+
   // Friends online loads last; it's the slowest call.
   const friendsCard = card('Friends playing now', loading('Loading friends'));
   root.querySelector('.cols-2').append(friendsCard);
@@ -283,8 +290,23 @@ pages.trades = async (root) => {
       const shots = await BB.headshots(data.map(t => t.user.id)).catch(() => new Map());
       const rows = data.map(t => tradeRow(t, shots.get(t.user.id)));
       body.replaceChildren(...rows.map(r => r.node));
-      // Prefetch values for the first few, gently.
-      await BB.pool(rows.slice(0, 8), 2, r => r.load());
+      if (kind !== 'Completed') {
+        // Prefetch values for the first few, gently.
+        await BB.pool(rows.slice(0, 8), 2, r => r.load());
+        return;
+      }
+      // Completed: work out every trade so we can total the profit.
+      const summary = el('p', { class: 'small muted', style: { padding: '4px 4px 12px' }, text: `Working out ${rows.length} completed trades…` });
+      body.prepend(summary);
+      const diffs = (await BB.pool(rows, 2, r => r.load())).filter(d => typeof d === 'number');
+      if (mine !== token) return;
+      const net = diffs.reduce((a, b) => a + b, 0);
+      const wins = diffs.filter(d => d > 0).length;
+      summary.replaceWith(el('div', { class: 'kpis', style: { marginBottom: '12px' } },
+        kpi('Net profit', `${net >= 0 ? '+' : '−'}${num(Math.abs(Math.round(net)))}`, `last ${diffs.length} trades, at today's values`),
+        kpi('Wins', `${wins}/${diffs.length}`),
+        kpi('Best trade', diffs.length ? `+${num(Math.round(Math.max(0, ...diffs)))}` : '–'),
+        kpi('Worst trade', diffs.length ? `−${num(Math.round(Math.abs(Math.min(0, ...diffs))))}` : '–')));
     } catch (e) {
       if (mine === token) body.replaceChildren(errorBox(e));
     }
@@ -325,6 +347,7 @@ pages.trades = async (root) => {
           }), side.robux ? el('div', { class: 'item' }, el('span', { class: 'grow', text: `${num(side.robux)} Robux` }), el('span', { class: 'small muted', text: `≈ ${num(Math.round(side.robux * 0.7))} after tax` })) : null),
           el('div', { class: 'side-total' }, el('span', { text: 'Total' }), el('span', { class: 'num', text: num(Math.round(worth.value + worth.robux * 0.7)) })));
         details.replaceChildren(col('You give', mySide, give), col('You get', theirSide, get));
+        return diff;
       } catch (e) {
         verdict.textContent = 'Error';
         sums.textContent = e.message;
@@ -530,6 +553,7 @@ pages.settings = async (root) => {
       toggle('trackPlaytime', 'Track playtime', 'Checks your status once a minute while the browser is open.'),
       toggle('notifyTrades', 'Trade notifications', 'Desktop notification when a new trade request arrives.'),
       toggle('notifyFriends', 'Friend notifications', 'Notify when friends start playing a game.'),
+      toggle('notifyGameUpdates', 'Game update notifications', 'Notify when one of your favorite games gets updated (checked every 30 minutes).'),
       toggle('regionLookup', 'Server regions', 'Lets "Detect regions" ask Roblox where servers are. Uses ipwho.is for the location.'),
       toggle('replaceServerList', 'Replace Roblox\'s server list', 'Hide Roblox\'s own public server list and filters on game pages; Bloxboard\'s list takes its place.'),
       toggle('homeMostPlayed', 'Most played on the Roblox home page', 'Adds a row with your most played games and your time in each.'),
@@ -547,6 +571,7 @@ pages.settings = async (root) => {
       el('p', { class: 'muted', text: `${days} day${days === 1 ? '' : 's'} of playtime saved.` }),
       el('div', { class: 'row wrap', style: { marginTop: '12px' } },
         el('button', { class: 'btn ghost', type: 'button', text: 'Export playtime', onclick: exportData }),
+        el('button', { class: 'btn ghost', type: 'button', text: 'Export everything', onclick: exportAll }),
         el('button', { class: 'btn ghost', type: 'button', text: 'Clear value cache', onclick: async (e) => { await chrome.storage.local.remove(['valuesCache', 'geoCache']); e.target.textContent = 'Cleared'; } }),
         clearButton())),
   ));
@@ -566,6 +591,14 @@ pages.settings = async (root) => {
       route(true);
     };
     return b;
+  }
+
+  async function exportAll() {
+    const all = await chrome.storage.local.get(null);
+    delete all.valuesCache; // big and re-downloadable
+    const data = { exported: new Date().toISOString(), version: chrome.runtime.getManifest().version, ...all };
+    const a = el('a', { href: URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })), download: `bloxboard-backup-${BB.dayKey()}.json` });
+    a.click();
   }
 
   async function exportData() {
@@ -948,6 +981,101 @@ pages.sandbox = async (root) => {
   drawSaved();
   redraw();
   runSearch(false);
+};
+
+
+// ---------- games: favorites + random pick ----------
+
+pages.games = async (root) => {
+  const sort = el('select', { class: 'input' },
+    el('option', { value: 'updated', text: 'Recently updated' }),
+    el('option', { value: 'playing', text: 'Most playing' }),
+    el('option', { value: 'mine', text: 'Your playtime' }),
+    el('option', { value: 'liked', text: 'Best liked' }),
+    el('option', { value: 'name', text: 'Name' }));
+  const minPlaying = el('select', { class: 'input' },
+    [['0', 'Any size'], ['100', '100+ playing'], ['1000', '1K+ playing'], ['10000', '10K+ playing']].map(([v, t]) => el('option', { value: v, text: t })));
+  const pick = el('div');
+  root.append(pageHead('Games', 'Your favorites and the games you play, with a random pick when you can\'t decide.', minPlaying, sort,
+    el('button', { class: 'btn', type: 'button', text: 'Random game', onclick: () => randomPick() })), pick);
+  const body = card(null, loading('Loading your games'));
+  root.append(body);
+
+  const me = await BB.me();
+  const favs = [];
+  let cursor = '';
+  do {
+    const page = await api(`https://games.roblox.com/v2/users/${me.id}/favorite/games?limit=50&sortOrder=Desc${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+    favs.push(...(page.data || []));
+    cursor = page.nextPageCursor;
+  } while (cursor && favs.length < 300);
+
+  const playedTop = await BB.topGames(null);
+  const mine = new Map(playedTop.map(g => [g.universeId, g.minutes]));
+  const list = new Map();
+  for (const f of favs) list.set(f.id, { universeId: f.id, name: f.name, placeId: f.rootPlace?.id, updated: f.updated, fav: true });
+  for (const g of playedTop) if (!list.has(g.universeId) && g.placeId) list.set(g.universeId, { universeId: g.universeId, name: g.name, placeId: g.placeId, fav: false });
+  const all = [...list.values()];
+  if (!all.length) return body.replaceChildren(el('p', { class: 'empty', text: 'Favorite a few games on Roblox (or play some) and they show up here.' }));
+
+  const ids = all.map(g => g.universeId);
+  const [details, votes, icons] = await Promise.all([
+    Promise.all(BB.chunk(ids, 50).map(part => api(`https://games.roblox.com/v1/games?universeIds=${part.join(',')}`).then(r => r.data || []).catch(() => []))).then(x => x.flat()),
+    Promise.all(BB.chunk(ids, 50).map(part => api(`https://games.roblox.com/v1/games/votes?universeIds=${part.join(',')}`).then(r => r.data || []).catch(() => []))).then(x => x.flat()),
+    BB.gameIcons(ids).catch(() => new Map()),
+  ]);
+  for (const d of details) Object.assign(list.get(d.id) || {}, { playing: d.playing, visits: d.visits, updated: list.get(d.id)?.updated || d.updated });
+  for (const v of votes) {
+    const g = list.get(v.id);
+    if (g) g.liked = v.upVotes + v.downVotes ? v.upVotes / (v.upVotes + v.downVotes) : null;
+  }
+
+  const filtered = () => {
+    const min = Number(minPlaying.value);
+    const by = {
+      updated: (a, b) => new Date(b.updated || 0) - new Date(a.updated || 0),
+      playing: (a, b) => (b.playing || 0) - (a.playing || 0),
+      mine: (a, b) => (mine.get(b.universeId) || 0) - (mine.get(a.universeId) || 0),
+      liked: (a, b) => (b.liked ?? -1) - (a.liked ?? -1),
+      name: (a, b) => (a.name || '').localeCompare(b.name || ''),
+    }[sort.value];
+    return all.filter(g => (g.playing || 0) >= min).sort(by);
+  };
+
+  function draw() {
+    const rows = filtered();
+    body.replaceChildren(
+      el('div', { class: 'card-head' }, el('h2', { text: `${rows.length} games` }), el('span', { class: 'small muted', text: `${favs.length} favorites · ${playedTop.length} played` })),
+      rows.length ? el('div', { class: 'list' }, rows.map(g => el('div', { class: 'item' },
+        img('icon', icons.get(g.universeId)),
+        el('div', { class: 'grow' },
+          el('div', { class: 'row' },
+            el('a', { class: 'item-title ellipsis', href: gameUrl(g.placeId), target: '_blank', text: g.name }),
+            g.fav ? el('span', { class: 'badge accent', text: 'Favorite' }) : null),
+          el('div', { class: 'small muted', text: [
+            g.playing != null ? `${num(g.playing)} playing` : null,
+            g.liked != null ? `${Math.round(g.liked * 100)}% liked` : null,
+            g.updated ? `updated ${BB.ago(g.updated)}` : null,
+            mine.get(g.universeId) ? `you played ${duration(mine.get(g.universeId))}` : null,
+          ].filter(Boolean).join(' · ') })),
+        el('a', { class: 'btn sm', href: BB.joinUrl(g.placeId), text: 'Play' }))))
+        : el('p', { class: 'empty', text: 'No games match that size.' }));
+  }
+
+  function randomPick() {
+    const rows = filtered().filter(g => g.placeId);
+    if (!rows.length) return;
+    const g = rows[Math.floor(Math.random() * rows.length)];
+    pick.replaceChildren(el('section', { class: 'card row wrap', style: { marginBottom: '16px', borderColor: 'var(--accent)' } },
+      img('icon', icons.get(g.universeId)),
+      el('div', { class: 'grow' }, el('div', { class: 'small muted', text: 'How about…' }), el('h2', { style: { margin: 0 }, text: g.name })),
+      el('button', { class: 'btn ghost', type: 'button', text: 'Another', onclick: randomPick }),
+      el('a', { class: 'btn', href: BB.joinUrl(g.placeId), text: 'Play it' })));
+  }
+
+  sort.onchange = draw;
+  minPlaying.onchange = draw;
+  draw();
 };
 
 // ---------- router ----------

@@ -52,6 +52,14 @@ def handler(route):
     return route.fulfill(status=200, content_type='text/html', body='<!doctype html><body style="font-family:sans-serif"><div style="display:flex;gap:16px">' + ''.join(f'<a href="https://www.roblox.com/games/{pid}/x" style="width:150px;display:block"><div><img src="{AV.format(c="6bd6a5")}" width="150" height="150"></div>{n}</a>' for pid, n in [(2753915549, 'Blox Fruits'), (920587237, 'Adopt Me!'), (606849621, 'Jailbreak')]) + '</div></body>')
   if url.rstrip('/') == 'https://www.roblox.com/trades':
     return route.fulfill(status=200, content_type='text/html', body=TRADE_HTML)
+  if '/favorite/games' in url:
+    return j(route, {'data': [{'id': 101, 'name': 'Blox Fruits', 'rootPlace': {'id': 2753915549}, 'updated': '2026-10-10T12:00:00Z'}, {'id': 104, 'name': 'Jailbreak', 'rootPlace': {'id': 606849621}, 'updated': '2026-09-30T12:00:00Z'}, {'id': 105, 'name': 'Natural Disaster Survival', 'rootPlace': {'id': 189707}, 'updated': '2026-08-01T12:00:00Z'}], 'nextPageCursor': None})
+  if 'games.roblox.com/v1/games/votes' in url:
+    ids = re.search(r'universeIds=([\d,]+)', url).group(1).split(',')
+    return j(route, {'data': [{'id': int(i), 'upVotes': 9000 - int(i) * 10, 'downVotes': 800 + int(i) * 5} for i in ids]})
+  if re.search(r'games\.roblox\.com/v1/games\?universeIds', url):
+    ids = re.search(r'universeIds=([\d,]+)', url).group(1).split(',')
+    return j(route, {'data': [{'id': int(i), 'playing': [52000, 410000, 3200, 21000, 1800, 900][int(i) % 6], 'visits': 10**9, 'updated': '2026-10-01T00:00:00Z'} for i in ids]})
   if 'transaction-totals' in url:
     return j(route, {'salesTotal': 1200, 'purchasesTotal': -3450, 'currencyPurchasesTotal': 4500, 'premiumStipendsTotal': 1000, 'tradeSystemEarningsTotal': 0, 'pendingRobuxTotal': 300, 'incomingRobuxTotal': 6700, 'outgoingRobuxTotal': 3450, 'groupPayoutsTotal': 0})
   if '/transactions?' in url:
@@ -155,10 +163,13 @@ with sync_playwright() as p:
     page.wait_for_timeout(500)
     print('after filters:', page.inner_text('#bbx-game .bbx-toolbar').replace('\n', ' | '))
     page.locator('#bbx-game').screenshot(path=f'{OUT}/game-filters.png')
+    page.click('#bbx-game .bbx-tab >> text=Badges'); page.wait_for_timeout(5000)
+    print('badges tab:', page.inner_text('#bbx-game .bbx-view:not([hidden])').replace('\n', ' | ')[:240])
+    page.locator('#bbx-game').screenshot(path=f'{OUT}/game-badges.png')
     page.click('#bbx-game .bbx-tab:nth-child(2)'); page.wait_for_timeout(500)
     print('recent tab:', page.inner_text('#bbx-game .bbx-view:not([hidden])')[:200])
     page.select_option('#bbx-game select[data-key=max]', '') if False else None
-    page.click('#bbx-game .bbx-tab:nth-child(3)')
+    page.click('#bbx-game .bbx-tab >> text=Find player')
     page.fill('#bbx-game input.bbx-input.bbx-grow', 'Roblox')
     page.click('#bbx-game form button[type=submit]')
     page.wait_for_timeout(15000)
@@ -209,8 +220,9 @@ with sync_playwright() as p:
     const friendLog = [{at: Date.now() - 3600e3, id: 2005, type: 'added', name: 'Sem', username: 'sem_rbx'}, {at: Date.now() - 86400e3 * 2, id: 2010, type: 'removed', name: 'Milan', username: 'milan_rbx'}];
     const notes = {2003: 'Fair trader, prefers adds over robux.'};
     const errorLog = [{at: Date.now() - 600e3, where: '/v1/games/920587237/servers/Public', message: 'HTTP 429 from games.roblox.com', page: 'https://www.roblox.com/games/920587237'}];
+    const notifyLog = [{at: Date.now() - 300e3, id: 'trade-1', title: 'Trade from Mira', message: 'You give 129K · you get 67.3K\\nLoss: -61.8K (-48%)'}, {at: Date.now() - 5400e3, id: 'update-1', title: 'Blox Fruits just updated', message: 'One of your favorite games has a new version.'}];
     const autoDeclined = [{at: Date.now() - 7200e3, id: 977, user: 'Bram', give: 120000, get: 41000, pct: -66}];
-    return chrome.storage.local.set({friendLog, notes, errorLog, autoDeclined, playtime, games, recentServers, playHours, currentGame: {universeId: 101, since: Date.now()}});
+    return chrome.storage.local.set({notifyLog, friendLog, notes, errorLog, autoDeclined, playtime, games, recentServers, playHours, currentGame: {universeId: 101, since: Date.now()}});
   }''')
   ctx.route(re.compile(r'https://([a-z]+\.)?(roblox|rolimons)\.com/.*'), handler)
   home = ctx.new_page(); watch(home, 'home')
@@ -250,7 +262,7 @@ with sync_playwright() as p:
   tr.screenshot(path=f'{OUT}/trade.png', full_page=True)
 
   dash = ctx.new_page(); watch(dash, 'dash')
-  for route_name in ['home', 'playtime', 'friends', 'trades', 'robux', 'items', 'sandbox', 'lookup/tobi_rbx', 'settings']:
+  for route_name in ['home', 'playtime', 'games', 'friends', 'trades', 'robux', 'items', 'sandbox', 'lookup/tobi_rbx', 'settings']:
     dash.goto(f'chrome-extension://{ext_id}/dashboard/dashboard.html#{route_name}')
     dash.wait_for_timeout(2500)
     if route_name in ('sandbox', 'robux'):
@@ -258,7 +270,14 @@ with sync_playwright() as p:
     if route_name == 'sandbox':
       dash.click('.catalog-item >> nth=0'); dash.wait_for_timeout(800)
       print('sandbox wearing:', dash.inner_text('.chips').replace('\n', ' '), '|', dash.inner_text('.sandbox-left p.small'))
+    if route_name == 'games':
+      dash.click('text=Random game'); dash.wait_for_timeout(400)
+      print('random pick:', dash.inner_text('#main section.card >> nth=0').replace('\n', ' | ')[:120])
     if route_name == 'trades':
+      dash.click('.seg button >> text=Completed'); dash.wait_for_timeout(3000)
+      print('completed summary:', dash.inner_text('.card .kpis').replace('\n', ' | ') if dash.locator('.card .kpis').count() else 'none')
+      dash.screenshot(path=f'{OUT}/dash-trades-completed.png', full_page=True)
+      dash.click('.seg button >> text=Inbound'); dash.wait_for_timeout(2500)
       dash.click('.trade-summary >> nth=1'); dash.wait_for_timeout(1500)
     dash.screenshot(path=f'{OUT}/dash-{route_name.split("/")[0]}.png', full_page=True)
     print('dash', route_name, 'errors on page:', dash.eval_on_selector_all('.error', 'n => n.map(x => x.textContent)'))

@@ -90,6 +90,7 @@ var BB = (() => {
     autoDecline: false,
     autoDeclinePct: 30,
     gameCardPlaytime: true,
+    notifyGameUpdates: true,
   };
 
   async function get(key, fallback) {

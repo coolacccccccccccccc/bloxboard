@@ -239,3 +239,7 @@ html.bbx-search-open .navbar-search .dropdown-menu, html.bbx-search-open #navbar
 }
 .bbx-note-wrap { flex-basis: 100%; }
 .bbx-note { width: 100%; height: auto; padding: 8px 10px; resize: vertical; font: inherit; font-size: 13px; }
+
+.bbx-row-badge { grid-template-columns: 32px 1fr auto; }
+.bbx-row-badge a { color: var(--bbx-fg) !important; font-weight: 700; }
+.bbx-row-badge.bbx-owned { opacity: .7; }

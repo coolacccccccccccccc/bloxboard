@@ -57,10 +57,10 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [ ] **You:** check where the row lands on the real home page
 - [x] Playtime badge on game cards across roblox.com
 - [x] Quick search & quick play in the navbar: games with Play, limiteds with values, exact player match
-- [ ] Random game button with filters (genre, player count, like ratio)
-- [ ] Game page: badge progress (which badges you have and how rare they are)
-- [ ] Favorites manager in the dashboard (sort, search, unfavorite dead games)
-- [ ] Game update tracker: notify when a favorite game updates
+- [x] Random game from your favorites and played games, filtered by size (Games page)
+- [x] Game page: badge progress (which badges you have, missing ones first, easiest on top)
+- [x] Favorites in the dashboard (sort by updated, players, your playtime, likes)
+- [x] Game update tracker: notify when a favorite game updates
 
 ## 4. Trading (RoPro Plus + Rex parity)
 
@@ -76,7 +76,8 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [x] Quick limited search in the navbar
 - [ ] Advanced item search inside the trade window
 - [ ] Item value graphs (value and RAP history) on the item card
-- [ ] Trade history analytics: profit over time, best and worst trades, chart
+- [x] Completed trades: net profit, wins, best and worst trade (at today's values)
+- [ ] Profit-over-time chart
 - [ ] Item value change alerts for items you own
 - [ ] Wishlist with price alerts (resale price drops below your target)
 - [ ] Never auto-accept or auto-send trades (Roblox ToS). Only show, warn and decline
@@ -101,9 +102,9 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [ ] Account page: account age, badges count, collectibles count, "year in Roblox" style summary
 - [x] Playtime: current and longest streak, when-you-play heatmap (weekday × hour)
 - [ ] Playtime per-game trends
-- [ ] Notification center: every alert Bloxboard sent, in one list
+- [x] Recent alerts on the dashboard home
 - [ ] Customizable Home (pick and order the cards)
-- [ ] Export everything to JSON or CSV
+- [x] Export everything to JSON (Settings)
 
 ## 7. Avatar and themes
 

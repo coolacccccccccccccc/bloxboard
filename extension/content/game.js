@@ -19,11 +19,13 @@
   const tabs = {
     servers: el('button', { class: 'bbx-tab', type: 'button', text: 'Servers' }),
     recent: el('button', { class: 'bbx-tab', type: 'button', text: 'Recent' }),
+    badges: el('button', { class: 'bbx-tab', type: 'button', text: 'Badges' }),
     find: el('button', { class: 'bbx-tab', type: 'button', text: 'Find player' }),
   };
   const views = {
     servers: el('div', { class: 'bbx-view' }),
     recent: el('div', { class: 'bbx-view' }),
+    badges: el('div', { class: 'bbx-view' }),
     find: el('div', { class: 'bbx-view' }),
   };
 
@@ -42,6 +44,7 @@
     for (const [k, v] of Object.entries(views)) v.hidden = k !== which;
     if (which === 'servers' && !servers.length && !loading) loadServers();
     if (which === 'recent') renderRecent();
+    if (which === 'badges' && !badgesLoaded) loadBadges();
   }
   for (const [k, t] of Object.entries(tabs)) t.onclick = () => showTab(k);
 
@@ -371,6 +374,59 @@
       el('div', {}, el('b', { text: `Server ${r.gameId.slice(0, 8)}` }), el('div', { class: 'bbx-muted bbx-small', text: `Left ${BB.ago(r.lastSeen)} · played ${duration(r.minutes)}` })),
       el('span', { class: `bbx-tag${alive.has(r.gameId) ? ' bbx-tag-good' : ''}`, text: alive.has(r.gameId) ? 'Still running' : servers.length && !cursor ? 'Closed' : 'Unknown' }),
       el('a', { class: 'bbx-btn bbx-sm', href: BB.joinUrl(r.placeId || PLACE_ID, r.gameId), text: 'Rejoin' })))));
+  }
+
+  // ---------- badges ----------
+
+  let badgesLoaded = false;
+  async function loadBadges() {
+    badgesLoaded = true;
+    views.badges.replaceChildren(el('p', { class: 'bbx-muted bbx-small', text: 'Loading badges…' }));
+    try {
+      universeId ??= await BB.universeOf(PLACE_ID);
+      const badges = [];
+      let cur = '';
+      do {
+        const page = await api(`https://badges.roblox.com/v1/universes/${universeId}/badges?limit=100&sortOrder=Asc${cur ? `&cursor=${encodeURIComponent(cur)}` : ''}`);
+        badges.push(...(page.data || []).filter(b => b.enabled));
+        cur = page.nextPageCursor;
+      } while (cur && badges.length < 500);
+      if (!badges.length) {
+        views.badges.replaceChildren(el('p', { class: 'bbx-empty', text: 'This game has no badges.' }));
+        return;
+      }
+      const owned = new Map();
+      const me = await BB.me().catch(() => null);
+      if (me) {
+        for (const part of BB.chunk(badges.map(b => b.id), 100)) {
+          const { data } = await api(`https://badges.roblox.com/v1/users/${me.id}/badges/awarded-dates?badgeIds=${part.join(',')}`).catch(() => ({ data: [] }));
+          for (const d of data || []) owned.set(d.badgeId, d.awardedDate);
+        }
+      }
+      const icons = await api(`https://thumbnails.roblox.com/v1/badges/icons?badgeIds=${badges.slice(0, 100).map(b => b.id).join(',')}&size=150x150&format=Png&isCircular=false`)
+        .then(r => new Map((r.data || []).map(t => [t.targetId, t.imageUrl]))).catch(() => new Map());
+      const rate = b => b.statistics?.winRatePercentage ?? 0;
+      const awarded = b => b.statistics?.awardedCount ?? 0;
+      // Some games report a 0% rate for every badge; fall back to how many people earned it.
+      const useRate = badges.some(b => rate(b) > 0);
+      const ease = b => (useRate ? rate(b) : awarded(b));
+      badges.sort((a, b) => Number(owned.has(a.id)) - Number(owned.has(b.id)) || ease(b) - ease(a));
+      const have = badges.filter(b => owned.has(b.id)).length;
+      views.badges.replaceChildren(
+        el('div', { class: 'bbx-toolbar' },
+          el('b', { text: me ? `${have} of ${badges.length} badges` : `${badges.length} badges` }),
+          el('span', { class: 'bbx-muted bbx-small', text: me ? `(${Math.round((have / badges.length) * 100)}%) · missing ones first, easiest at the top` : '· log in to see which you have' })),
+        el('div', { class: 'bbx-meter bbx-meter-lg' }, el('i', { style: { width: `${(have / badges.length) * 100}%`, background: 'var(--bbx-good)' } })),
+        el('div', { class: 'bbx-list' }, badges.map(b => el('div', { class: `bbx-row bbx-row-badge${owned.has(b.id) ? ' bbx-owned' : ''}` },
+          el('img', { class: 'bbx-avatar', src: icons.get(b.id) || undefined, alt: '' }),
+          el('div', { class: 'bbx-grow' },
+            el('a', { href: `https://www.roblox.com/badges/${b.id}`, target: '_blank', rel: 'noopener', text: b.displayName || b.name }),
+            el('div', { class: 'bbx-muted bbx-small', text: useRate ? `${(rate(b) * 100).toFixed(rate(b) < 0.001 ? 3 : 1)}% of players get it · ${num(awarded(b))} awarded` : `${num(awarded(b))} players have it` })),
+          owned.has(b.id) ? el('span', { class: 'bbx-tag bbx-tag-good', text: `Got it ${new Date(owned.get(b.id)).toLocaleDateString()}` }) : el('span', { class: 'bbx-tag', text: 'Missing' })))));
+    } catch (e) {
+      badgesLoaded = false;
+      views.badges.replaceChildren(el('p', { class: 'bbx-empty', text: `Couldn't load badges: ${e.message}` }));
+    }
   }
 
   // ---------- player finder ----------

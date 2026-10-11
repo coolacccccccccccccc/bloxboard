@@ -27,6 +27,19 @@ chrome.runtime.onStartup.addListener(ensureSetup);
 
 chrome.action.onClicked.addListener(() => openDashboard());
 
+// Every notification also lands in the dashboard's "Recent alerts".
+let notifyQueue = Promise.resolve();
+function notify(id, opts) {
+  chrome.notifications.create(id, { type: 'basic', iconUrl: chrome.runtime.getURL('icons/128.png'), ...opts });
+  // Queue the log writes so alerts fired back to back don't overwrite each other.
+  notifyQueue = notifyQueue.then(async () => {
+    const log = await BB.get('notifyLog', []);
+    log.unshift({ at: Date.now(), id, title: opts.title, message: opts.message });
+    await BB.set('notifyLog', log.slice(0, 100));
+  }).catch(() => {});
+  return notifyQueue;
+}
+
 async function openDashboard(hash = '') {
   const url = chrome.runtime.getURL(`dashboard/dashboard.html${hash ? `#${hash}` : ''}`);
   const [existing] = await chrome.tabs.query({ url: chrome.runtime.getURL('dashboard/dashboard.html') + '*' });
@@ -63,6 +76,7 @@ async function tick() {
   if (settings.notifyTrades && minute % 2 === 0) await checkTrades().catch(() => {});
   if (settings.notifyFriends && minute % 2 === 1) await checkFriends(me.id).catch(() => {});
   if (minute % 30 === 7) await friendLog(me.id).catch(e => BB.logError('friend log', e));
+  if (settings.notifyGameUpdates && minute % 30 === 17) await gameUpdates(me.id).catch(e => BB.logError('game updates', e));
 }
 
 async function trackPlaytime(userId) {
@@ -137,9 +151,7 @@ async function checkTrades() {
         const log = await BB.get('autoDeclined', []);
         log.unshift({ at: Date.now(), id: t.id, user: t.user.displayName, give, get, pct });
         await BB.set('autoDeclined', log.slice(0, 100));
-        chrome.notifications.create(`autodeclined-${t.id}`, {
-          type: 'basic',
-          iconUrl: chrome.runtime.getURL('icons/128.png'),
+        notify(`autodeclined-${t.id}`, {
           title: `Auto-declined a trade from ${t.user.displayName}`,
           message: `You'd give ${BB.num(Math.round(give))} for ${BB.num(Math.round(get))} (${pct}%). Change the rule in Bloxboard settings.`,
         });
@@ -149,9 +161,7 @@ async function checkTrades() {
     } catch {
       // keep the plain message
     }
-    chrome.notifications.create(`trade-${t.id}`, {
-      type: 'basic',
-      iconUrl: chrome.runtime.getURL('icons/128.png'),
+    notify(`trade-${t.id}`, {
       title: `Trade from ${t.user.displayName}`,
       message,
       priority: 1,
@@ -160,6 +170,22 @@ async function checkTrades() {
     });
   }
   await BB.set('notifiedTrades', [...seen].slice(-200));
+}
+
+// Favorite games: notify when one of them updates.
+async function gameUpdates(userId) {
+  const { data } = await BB.api(`https://games.roblox.com/v2/users/${userId}/favorite/games?limit=50&sortOrder=Desc`, { retries: 1 });
+  const known = await BB.get('favUpdated', null);
+  const now = Object.fromEntries((data || []).map(g => [g.id, g.updated]));
+  await BB.set('favUpdated', now);
+  if (!known) return;
+  const fresh = (data || []).filter(g => known[g.id] && new Date(g.updated) > new Date(known[g.id]));
+  for (const g of fresh.slice(0, 3)) {
+    await notify(`update-${g.id}-${Date.now()}`, { title: `${g.name} just updated`, message: 'One of your favorite games has a new version. Click to open it.' });
+    const map = await BB.get('updateLinks', {});
+    map[g.id] = g.rootPlace?.id;
+    await BB.set('updateLinks', map);
+  }
 }
 
 // Friend log: snapshot friend ids, record who appeared or disappeared.
@@ -203,9 +229,7 @@ async function checkFriends(userId) {
   if (!started.length) return;
   const names = await BB.users(started.map(Number));
   const lines = started.slice(0, 4).map(id => `${names.get(Number(id))?.displayName || 'Friend'} → ${inGame[id]}`);
-  chrome.notifications.create(`friends-${Date.now()}`, {
-    type: 'basic',
-    iconUrl: chrome.runtime.getURL('icons/128.png'),
+  notify(`friends-${Date.now()}`, {
     title: started.length === 1 ? 'A friend started playing' : `${started.length} friends started playing`,
     message: lines.join('\n') + (started.length > 4 ? `\n+${started.length - 4} more` : ''),
     priority: 0,
@@ -222,13 +246,20 @@ chrome.notifications.onButtonClicked.addListener(async (id, index) => {
   }
   try {
     await BB.api(`https://trades.roblox.com/v1/trades/${m[1]}/decline`, { method: 'POST', body: {}, retries: 2 });
-    chrome.notifications.create(`declined-${m[1]}`, { type: 'basic', iconUrl: chrome.runtime.getURL('icons/128.png'), title: 'Trade declined', message: 'Done. It\'s gone from your inbound trades.' });
+    notify(`declined-${m[1]}`, { title: 'Trade declined', message: 'Done. It\'s gone from your inbound trades.' });
   } catch (e) {
-    chrome.notifications.create(`declinefail-${m[1]}`, { type: 'basic', iconUrl: chrome.runtime.getURL('icons/128.png'), title: 'Couldn\'t decline the trade', message: `${e.message}. Open roblox.com/trades to decline it there.` });
+    notify(`declinefail-${m[1]}`, { title: 'Couldn\'t decline the trade', message: `${e.message}. Open roblox.com/trades to decline it there.` });
   }
 });
 
-chrome.notifications.onClicked.addListener((id) => {
+chrome.notifications.onClicked.addListener(async (id) => {
+  const up = id.match(/^update-(\d+)-/);
+  if (up) {
+    const place = (await BB.get('updateLinks', {}))[up[1]];
+    chrome.tabs.create({ url: place ? `https://www.roblox.com/games/${place}` : 'https://www.roblox.com/home' });
+    chrome.notifications.clear(id);
+    return;
+  }
   openDashboard(id.startsWith('trade') ? 'trades' : 'friends');
   chrome.notifications.clear(id);
 });
