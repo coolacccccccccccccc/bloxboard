@@ -165,6 +165,21 @@ Every RoPro feature from ropro.io/features, and where it stands in Bloxboard.
 - [ ] More mutuals on the friends page
 - [ ] Profile likes, Discord tag, item comments, Trade Board (all run on RoPro's own server; possible later with our sync server)
 
+## 10. Community hub (idea from spectre)
+
+> Stays free, no ads. One small server on the homelab powers this and the RoPro server-side features below.
+
+- [ ] Decide who can post: invite-only (friends) first, or public
+- [ ] Decide login: Sign in with Roblox (official OAuth app) or Discord
+- [ ] Backend on the homelab: small API + database in its own container, behind Caddy at `bloxboard.enesserver.dev/api`
+- [ ] Scripts: share Roblox Studio (Luau) scripts with highlighting, tags and a copy button
+- [ ] Outfits: share avatar sandbox outfits; anyone can try them on in their own sandbox with one click
+- [ ] Posts: short community posts with images
+- [ ] Likes, comments, profiles (your Roblox avatar and name)
+- [ ] Safety from day one: report button, admin queue, word filter, rate limits, delete and ban (lots of Roblox players are kids)
+- [ ] In the extension: "Share outfit" in the sandbox, community feed in the dashboard
+- [ ] Same server unlocks: profile likes, comments on limiteds, trade board, oldest/newest servers, playtime sync between PCs
+
 ## Rules we stick to
 
 - Read-only towards Roblox, except joining servers and (opt-in) declining trades. No trading bots, no auto-accept, no spam
