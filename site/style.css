@@ -48,7 +48,7 @@ html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 var(--body); -webkit-font-smoothing: antialiased; }
 a { color: var(--accent); }
-img { max-width: 100%; display: block; }
+img { max-width: 100%; height: auto; display: block; }
 code { font: .88em var(--mono); background: var(--sunk); border-radius: 5px; padding: .1em .4em; }
 h1, h2, h3 { font-family: var(--display); line-height: 1.1; letter-spacing: -.02em; text-wrap: balance; margin: 0; }
 
