@@ -3,3 +3,4 @@ dist/
 site-dist/
 tools/node_modules/
 tools/test/shots/
+__pycache__/
