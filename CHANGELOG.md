@@ -1,5 +1,10 @@
 ## Changelog
 
+### 0.7.1 · 11 October 2026
+
+- Player finder: new "Display name" mode. It looks up every account with that display name and scans the servers for all of them at once. Accounts with identical default avatars are skipped, so it doesn't match strangers.
+- Player finder: every result has a Copy link button for an invite link to that server.
+
 ### 0.7.0 · 11 October 2026
 
 - New: the Bloxboard Community at bloxboard.enesserver.dev/community. Share Roblox Studio scripts, outfits and posts. Anyone can read; to post, apply and an admin approves you.

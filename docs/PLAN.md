@@ -26,6 +26,7 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [x] Server browser with Join per server
 - [x] Server regions via gamejoin + ipwho.is (confirmed working logged in)
 - [x] Player finder: presence first, then repeated token scans
+- [x] Player finder by display name (all accounts with that name at once)
 - [x] Profile bar: Rolimons value and RAP, join date, status, Join
 - [x] Dashboard: Home, Playtime, Friends, Trades, Items & values, Player lookup, Settings
 - [x] Background: playtime every minute, trade notifications, optional friend notifications

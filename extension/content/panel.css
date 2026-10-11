@@ -243,3 +243,7 @@ html.bbx-search-open .navbar-search .dropdown-menu, html.bbx-search-open #navbar
 .bbx-row-badge { grid-template-columns: 32px 1fr auto; }
 .bbx-row-badge a { color: var(--bbx-fg) !important; font-weight: 700; }
 .bbx-row-badge.bbx-owned { opacity: .7; }
+
+.bbx-found-list { display: grid; gap: 8px; }
+.bbx-found-list .bbx-found { margin-top: 0; }
+.bbx-found-list:not(:empty) { margin-top: 10px; }

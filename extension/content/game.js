@@ -430,18 +430,24 @@
   }
 
   // ---------- player finder ----------
+  // Username mode: one player. Display-name mode: every account with that display name,
+  // scanned at once. Matching is by avatar picture, so identical (e.g. default) avatars are skipped.
 
+  const findMode = el('select', { class: 'bbx-input', 'aria-label': 'Search by' },
+    el('option', { value: 'user', text: 'Username / ID' }),
+    el('option', { value: 'display', text: 'Display name' }));
   const findInput = el('input', { class: 'bbx-input bbx-grow', placeholder: 'Username or user ID', spellcheck: 'false', autocomplete: 'off' });
+  findMode.onchange = () => { findInput.placeholder = findMode.value === 'display' ? 'Display name, e.g. Freeman' : 'Username or user ID'; };
   const findBtn = el('button', { class: 'bbx-btn', type: 'submit', text: 'Search' });
   const findAvatar = el('img', { class: 'bbx-avatar', alt: '' });
   const findBar = el('i');
-  const findStatus = el('p', { class: 'bbx-muted bbx-small' }, 'Finds friends instantly. For others, Roblox only reveals ~5 random players per server, so the scan repeats a few passes.');
-  const findResult = el('div');
+  const findStatus = el('p', { class: 'bbx-muted bbx-small' }, 'Finds friends instantly. For others, Roblox only reveals ~5 random players per server, so the scan repeats a few passes. Display name mode checks every account with that name.');
+  const findResult = el('div', { class: 'bbx-found-list' });
   let finder = null;
 
   views.find.append(
-    el('form', { class: 'bbx-toolbar', onsubmit: (e) => { e.preventDefault(); finder ? finder.abort() : runFinder(findInput.value); } },
-      findAvatar, findInput, findBtn),
+    el('form', { class: 'bbx-toolbar', onsubmit: (e) => { e.preventDefault(); finder ? finder.abort() : runFinder(findInput.value.trim()); } },
+      findAvatar, findMode, findInput, findBtn),
     el('div', { class: 'bbx-meter bbx-meter-lg' }, findBar),
     findStatus, findResult);
 
@@ -450,39 +456,104 @@
     findStatus.dataset.kind = kind;
   };
 
-  function foundCard(title, sub, placeId, gameId, faces) {
-    findResult.replaceChildren(el('div', { class: 'bbx-found' },
-      el('div', { class: 'bbx-faces' }, faces.slice(0, 5).map(src => el('img', { src, alt: '' }))),
+  function addFound(title, sub, placeId, gameId, face) {
+    if (findResult.querySelector(`[data-game="${gameId}"][data-title="${CSS.escape(title)}"]`)) return;
+    findResult.append(el('div', { class: 'bbx-found', 'data-game': gameId, 'data-title': title },
+      el('div', { class: 'bbx-faces' }, face ? el('img', { src: face, alt: '' }) : null),
       el('div', { class: 'bbx-grow' }, el('b', { text: title }), el('div', { class: 'bbx-muted bbx-small', text: sub })),
+      el('button', { class: 'bbx-btn bbx-ghost bbx-sm', type: 'button', text: 'Copy link', onclick: async (e) => {
+        try { await navigator.clipboard.writeText(BB.inviteUrl(placeId, gameId)); e.target.textContent = 'Copied'; } catch { e.target.textContent = 'Failed'; }
+      } }),
       el('a', { class: 'bbx-btn', href: BB.joinUrl(placeId, gameId), text: 'Join' })));
   }
 
+  const label = u => (u.displayName && u.displayName !== u.name ? `${u.displayName} (@${u.name})` : `@${u.name}`);
+
+  async function displayNameUsers(name, signal) {
+    const lower = name.toLowerCase();
+    const out = [];
+    let cur = '';
+    for (let i = 0; i < 3; i++) {
+      let page;
+      try {
+        page = await api(`https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(name)}&limit=100${cur ? `&cursor=${encodeURIComponent(cur)}` : ''}`, { signal, retries: 3 });
+      } catch (e) {
+        // Roblox's user search is heavily rate limited: keep what we have if we already found some.
+        if (e.name === 'AbortError' || !out.length) throw e;
+        break;
+      }
+      for (const u of page.data || []) if ((u.displayName || '').trim().toLowerCase() === lower) out.push({ id: u.id, name: u.name, displayName: u.displayName });
+      cur = page.nextPageCursor;
+      if (!cur) break;
+      say(`Found ${out.length} accounts named "${name}" so far…`);
+      await BB.sleep(1500);
+    }
+    return out;
+  }
+
   async function runFinder(query) {
-    if (!query.trim()) return;
+    if (!query) return;
     finder = new AbortController();
     const signal = finder.signal;
+    const display = findMode.value === 'display';
     findBtn.textContent = 'Cancel';
     findInput.disabled = true;
+    findMode.disabled = true;
     findResult.replaceChildren();
+    findAvatar.removeAttribute('src');
     findBar.style.width = '0%';
+    let found = 0;
 
     try {
-      say('Looking up user…');
-      const user = await BB.resolveUser(query);
-      if (!user) return say('User not found.', 'bad');
-      const label = user.displayName !== user.name ? `${user.displayName} (@${user.name})` : `@${user.name}`;
-      const shot = (await api(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${user.id}&size=150x150&format=Png&isCircular=false`)).data?.[0];
-      if (shot?.imageUrl) findAvatar.src = shot.imageUrl;
-
-      say(`Checking where ${label} is…`);
-      const p = (await BB.presence([user.id]).catch(() => new Map())).get(user.id);
-      if (p?.userPresenceType === 2 && p.gameId && p.placeId) {
-        const here = String(p.placeId) === PLACE_ID || String(p.rootPlaceId) === PLACE_ID;
-        foundCard(here ? `${label} is in this game` : `${label} is in ${p.lastLocation || 'another game'}`, `Server ${p.gameId.slice(0, 8)}… · via online status`, p.placeId, p.gameId, shot?.imageUrl ? [shot.imageUrl] : []);
-        findBar.style.width = '100%';
-        return say('Found.', 'good');
+      // 1. Who are we looking for?
+      say(display ? `Looking up everyone with the display name "${query}"…` : 'Looking up user…');
+      let users;
+      if (display) {
+        users = await displayNameUsers(query, signal);
+        if (!users.length) return say(`No accounts with the display name "${query}".`, 'bad');
+      } else {
+        const u = await BB.resolveUser(query);
+        if (!u) return say('User not found.', 'bad');
+        users = [u];
       }
-      if (shot?.state !== 'Completed') return say(`Can't scan: ${label}'s avatar picture isn't available.`, 'bad');
+
+      // 2. Online status: exact server when Roblox shares it; skip anyone known to be in another game.
+      say(`Checking where ${users.length === 1 ? label(users[0]) : `${users.length} accounts`} are…`);
+      const pres = await BB.presence(users.map(u => u.id)).catch(() => new Map());
+      const shots = await BB.headshots(users.map(u => u.id));
+      if (users.length === 1 && shots.get(users[0].id)) findAvatar.src = shots.get(users[0].id);
+      const scanFor = [];
+      let elsewhere = 0;
+      for (const u of users) {
+        const p = pres.get(u.id);
+        if (p?.userPresenceType === 2 && p.gameId && p.placeId) {
+          const here = String(p.placeId) === PLACE_ID || String(p.rootPlaceId) === PLACE_ID;
+          if (here || !display) {
+            addFound(here ? `${label(u)} is in this game` : `${label(u)} is in ${p.lastLocation || 'another game'}`, `Server ${p.gameId.slice(0, 8)}… · via online status`, p.placeId, p.gameId, shots.get(u.id));
+            found++;
+          } else elsewhere++;
+          continue;
+        }
+        if (p?.userPresenceType === 2 && p.universeId && universeId && p.universeId !== universeId) { elsewhere++; continue; }
+        scanFor.push(u);
+      }
+      if (!display && found) { findBar.style.width = '100%'; return say('Found.', 'good'); }
+
+      // 3. Avatar matching. Drop pictures shared by several accounts (default avatars): they'd match strangers.
+      const byUrl = new Map();
+      const dupes = new Set();
+      for (const u of scanFor) {
+        const url = shots.get(u.id);
+        if (!url) continue;
+        if (byUrl.has(url)) dupes.add(url); else byUrl.set(url, u);
+      }
+      for (const url of dupes) byUrl.delete(url);
+      if (!byUrl.size) {
+        findBar.style.width = '100%';
+        return say(found ? `Done. ${found} found by online status.` : `Nothing to scan for: ${dupes.size ? 'their avatars are default/identical, so they can\'t be told apart' : 'no usable avatar pictures'}.`, found ? 'good' : 'bad');
+      }
+      const skipped = elsewhere ? ` · ${elsewhere} in other games skipped` : '';
+      say(`Scanning servers for ${byUrl.size} account${byUrl.size === 1 ? '' : 's'}${skipped}…`);
 
       const seen = new Map();
       const info = new Map();
@@ -508,12 +579,16 @@
           const batches = await Promise.all(BB.chunk(reqs, 100).map(b => api('https://thumbnails.roblox.com/v1/batch', { method: 'POST', body: b, signal })));
           for (const { data } of batches) {
             for (const t of data || []) {
-              if (t.imageUrl && t.imageUrl === shot.imageUrl) {
-                const sid = t.requestId.split(':')[0];
-                const s = info.get(sid);
-                foundCard(`Found ${label}`, `${s.playing}/${s.maxPlayers} players · pass ${pass}`, PLACE_ID, sid, [shot.imageUrl]);
+              const u = t.imageUrl && byUrl.get(t.imageUrl);
+              if (!u) continue;
+              const sid = t.requestId.split(':')[0];
+              const s = info.get(sid);
+              addFound(`Found ${label(u)}`, `${s.playing}/${s.maxPlayers} players · pass ${pass}`, PLACE_ID, sid, t.imageUrl);
+              found++;
+              byUrl.delete(t.imageUrl);
+              if (!display || !byUrl.size) {
                 findBar.style.width = '100%';
-                return say('Found.', 'good');
+                return say(display ? `Done: found ${found}.` : 'Found.', 'good');
               }
             }
           }
@@ -525,17 +600,18 @@
           }
           const pct = total ? (saw / total) * 100 : 0;
           findBar.style.width = `${pct}%`;
-          say(`Pass ${pass}/8 · ${info.size} servers · saw ${saw} of ${total} players (${pct.toFixed(0)}%)`);
+          say(`Pass ${pass}/8 · ${info.size} servers · saw ${saw} of ${total} players (${pct.toFixed(0)}%) · ${found} found${skipped}`);
         } while (cur);
         if (!fresh) break;
       }
-      say('Not found. Roblox hides most players per server, so they may still be here.', 'bad');
+      say(found ? `Done: found ${found}. Others may still be here; Roblox hides most players per server.` : 'Not found. Roblox hides most players per server, so they may still be here.', found ? 'good' : 'bad');
     } catch (e) {
-      say(e.name === 'AbortError' ? 'Canceled.' : e.message, e.name === 'AbortError' ? '' : 'bad');
+      say(e.name === 'AbortError' ? `Canceled${found ? ` (found ${found})` : ''}.` : e.message, e.name === 'AbortError' ? '' : 'bad');
     } finally {
       finder = null;
       findBtn.textContent = 'Search';
       findInput.disabled = false;
+      findMode.disabled = false;
     }
   }
 
