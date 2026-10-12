@@ -1,5 +1,9 @@
 ## Changelog
 
+### 0.8.4 · 12 October 2026
+
+- Fix: the "Most played" row ended up at the very bottom of the Roblox home page. Roblox now draws the friends row inside the game feed; Bloxboard places its row right between your friends and the first game row.
+
 ### 0.8.3 · 12 October 2026
 
 - Fix: the "Most played" row was on the Roblox home page but drawn underneath the friends row. Roblox lays that page out with floating columns; the row now always starts below them, sits above its neighbours, and moves to another spot if something still overlaps it.

@@ -53,12 +53,13 @@
 
   const q = sel => document.querySelector(sel);
   const homeEl = () => q('#HomeContainer, .home-container, [data-testid="home-page-container"], [data-testid*="home-page"], [class*="home-page-container"]');
-  const SORT_TITLE = /^(continue|recommended for you|today's picks|favorites|your favorites|friends|up next|top trending|popular|sponsored)/i;
+  const SORT_TITLE = /^(continue|recommended for you|today's picks|favorites|your favorites|up next|top trending|popular|sponsored)/i;
 
   // A game-sort section: the block around a heading like "Recommended For You".
   function firstSortBlock(root) {
-    for (const h of root.querySelectorAll('h2, h3, [class*="sort-header"], [class*="container-header"]')) {
-      if (section.contains(h) || !SORT_TITLE.test((h.textContent || '').trim())) continue;
+    for (const h of root.querySelectorAll('h1, h2, h3, h4, [class*="header"], [class*="heading"], [class*="title"]')) {
+      const text = (h.textContent || '').trim();
+      if (section.contains(h) || text.length > 40 || !SORT_TITLE.test(text)) continue;
       let block = h;
       while (block.parentElement && block.parentElement !== root && block.parentElement.children.length < 3) block = block.parentElement;
       return block;
@@ -68,11 +69,27 @@
 
   const SPOTS = [
     ['after friends', () => {
+      // Roblox draws the friends carousel inside the game feed now, so climb only up to the block
+      // that holds both the friends and the first game row, and sit between the two.
       const home = homeEl();
-      const friends = q('.friend-carousel-container, [class*="friends-carousel"], .people-list-container, [class*="friend-carousel"], [data-testid*="friend"]');
+      const friends = q('.friend-carousel-container, [class*="friends-carousel"], .people-list-container, [class*="friend-carousel"]');
       if (!friends || !home?.contains(friends)) return null;
+      const sort = firstSortBlock(home);
+      if (sort && !friends.contains(sort) && !sort.contains(friends)) {
+        const up = new Set();
+        for (let n = friends; n && n !== home.parentElement; n = n.parentElement) up.add(n);
+        let shared = sort;
+        while (shared && !up.has(shared)) shared = shared.parentElement;
+        if (shared) {
+          let anchor = friends;
+          while (anchor.parentElement && anchor.parentElement !== shared) anchor = anchor.parentElement;
+          if (anchor.parentElement === shared && anchor !== section) return { after: anchor };
+        }
+      }
       let anchor = friends;
       while (anchor.parentElement && anchor.parentElement !== home) anchor = anchor.parentElement;
+      // Never after the whole feed: that's the bottom of the page.
+      if (anchor.matches('.place-list-container') || anchor.querySelector('[data-testid="HomePageContainerTestId"]')) return null;
       return anchor.parentElement ? { after: anchor } : null;
     }],
     ['top of game list', () => { const l = q('.place-list-container'); return l ? { prepend: l } : null; }],
