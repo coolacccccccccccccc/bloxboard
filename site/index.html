@@ -17,6 +17,7 @@
       <a class="brand" href="./"><img src="icon.png" alt="">Bloxboard</a>
       <nav>
         <a href="#install">Install</a>
+        <a href="#brave">Brave</a>
         <a href="#features">Features</a>
         <a href="companion.html">Companion</a>
         <a href="community/">Community</a>
@@ -46,7 +47,7 @@
 
     <section class="block" id="install">
       <h2>Install in Helium</h2>
-      <p class="sub">Bloxboard isn't on the Chrome Web Store, so Helium needs one setting changed first. It takes about a minute.</p>
+      <p class="sub">Bloxboard isn't on the Chrome Web Store, so Helium needs one setting changed first. It takes about a minute. Using Brave? <a href="#brave">Brave steps are below</a>.</p>
       <ol class="steps">
         <li>Open <code>helium://flags/#extension-mime-request-handling</code>, set it to <strong>Always prompt for install</strong> and restart Helium.</li>
         <li>Click <strong>Download .crx</strong> above. Helium asks "Add Bloxboard?": click <strong>Add extension</strong>.</li>
@@ -54,6 +55,20 @@
       </ol>
       <div class="note" style="margin-top:18px"><p><strong>Getting CRX_REQUIRED_PROOF_MISSING, or no flag?</strong> Use the zip instead: download the <strong>.zip</strong>, unzip it somewhere you'll keep it, open <code>helium://extensions</code>, turn on <strong>Developer mode</strong>, click <strong>Load unpacked</strong> and pick the <code>bloxboard</code> folder. To update later, unzip the new zip over the same folder and click the reload icon on the Bloxboard card.</p></div>
       <p class="meta">Then log in on roblox.com and click the Bloxboard icon in the toolbar to open the dashboard.</p>
+    </section>
+
+    <section class="block" id="brave">
+      <h2>Install in Brave</h2>
+      <p class="sub">Brave only installs .crx files from the Chrome Web Store, so use the <strong>.zip</strong>. It takes about two minutes, and the same steps work in Chrome and Edge.</p>
+      <ol class="steps">
+        <li>Click <strong>Download .zip</strong> above.</li>
+        <li>Right-click the zip → <strong>Extract All…</strong>. Put it somewhere it can stay, like <code>Documents\Bloxboard</code>. Brave loads Bloxboard from this folder, so don't delete it.</li>
+        <li>Type <code>brave://extensions</code> in the address bar and press Enter. Turn on <strong>Developer mode</strong> (top right).</li>
+        <li>Click <strong>Load unpacked</strong> and pick the <code>bloxboard</code> folder, the one with <code>manifest.json</code> inside.</li>
+        <li>Click the puzzle icon next to the address bar and pin <strong>Bloxboard</strong>, then log in on roblox.com and click the icon to open the dashboard.</li>
+      </ol>
+      <div class="note" style="margin-top:18px"><p><strong>Updating:</strong> download the new zip, extract it over the same folder (replace the files), then click the reload icon (↻) on the Bloxboard card in <code>brave://extensions</code>. Your playtime and settings stay.</p></div>
+      <div class="note" style="margin-top:12px"><p><strong>Something off?</strong> "Manifest file is missing" means you picked the wrong folder: pick the inner <code>bloxboard</code> folder. If Brave shows "Disable developer mode extensions" on startup, click away or close it: Bloxboard keeps working. Brave Shields doesn't block Bloxboard, so you can leave them on.</p></div>
     </section>
 
     <section class="block" id="features">
