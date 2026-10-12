@@ -1,5 +1,10 @@
 ## Changelog
 
+### Companion 1.0.1 · 12 October 2026
+
+- Fix: the window could stay on "Waiting for Roblox…" in a game. It now shows the game as soon as Roblox starts joining, and picks Roblox's newest log the same way Fishstrap does.
+- New: Diagnostics in the tray menu shows which Roblox log it reads and what it found.
+
 ### Companion 1.0.0 + extension 0.7.2 · 11 October 2026
 
 - New Windows app: Bloxboard Companion. A small always-on-top window next to Roblox with the game, server location, time in server, Copy invite, Server hop, Rejoin and Recent servers. It only reads Roblox's log file (like Fishstrap and Bloxstrap), so it never touches the game. Starts with Roblox through Fishstrap/Bloxstrap Custom Integrations.

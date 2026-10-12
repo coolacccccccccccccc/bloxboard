@@ -12,6 +12,9 @@ public sealed class LogWatcher : IDisposable
 
     public string? CurrentFile => _file;
 
+    /// <summary>Lines read from the current file (for diagnostics).</summary>
+    public long LinesRead { get; private set; }
+
     /// <summary>Called with unexpected errors (the watcher keeps going).</summary>
     public Action<Exception>? OnError { get; set; }
 
@@ -38,6 +41,7 @@ public sealed class LogWatcher : IDisposable
                 if (newest is not null && newest != _file)
                 {
                     _file = newest;
+                    LinesRead = 0;
                     OnFileOpened?.Invoke(newest);
                     // The log that was already open when we started: read it from the start only if asked,
                     // so a mid-game start still picks up the current server. Later logs: from the start.
@@ -60,7 +64,10 @@ public sealed class LogWatcher : IDisposable
         if (!Directory.Exists(_dir)) return null;
         return new DirectoryInfo(_dir).GetFiles("*.log")
             .Where(f => f.Name.Contains("Player", StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(f => f.LastWriteTimeUtc)
+            // Same pick as Fishstrap/Bloxstrap: newest by creation time. Windows updates a log's
+            // last-write time lazily while Roblox keeps it open, so that one can point at an old log.
+            .OrderByDescending(f => f.CreationTimeUtc)
+            .ThenByDescending(f => f.LastWriteTimeUtc)
             .FirstOrDefault()?.FullName;
     }
 
@@ -86,7 +93,10 @@ public sealed class LogWatcher : IDisposable
         foreach (var line in text.Split('\n'))
         {
             var l = line.TrimEnd('\r');
-            if (l.Length > 0) _onLine(l);
+            if (l.Length == 0) continue;
+            LinesRead++;
+            try { _onLine(l); }
+            catch (Exception e) { OnError?.Invoke(e); } // one bad line must not stall the file
         }
         _pos += lastNewline + 1;
     }

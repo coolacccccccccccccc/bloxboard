@@ -21,8 +21,10 @@ public sealed class Store
     public Store(string? dir = null)
     {
         _dir = dir ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bloxboard");
-        Directory.CreateDirectory(_dir);
+        System.IO.Directory.CreateDirectory(_dir);
     }
+
+    public string Directory => _dir;
 
     private string P(string name) => Path.Combine(_dir, name);
 
@@ -48,13 +50,13 @@ public sealed class Store
     /// <summary>Small diagnostics log (companion.log), capped at ~200 KB.</summary>
     public void Log(string message)
     {
-        try
+        lock (Json) try
         {
             var path = P("companion.log");
             if (File.Exists(path) && new FileInfo(path).Length > 200_000) File.Delete(path);
             File.AppendAllText(path, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  {message}{Environment.NewLine}");
         }
-        catch (IOException) { }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
     public Settings LoadSettings() => Load("companion-settings.json", new Settings());

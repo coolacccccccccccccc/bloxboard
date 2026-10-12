@@ -31,10 +31,15 @@ Check(LogParser.Timestamp(lines[1])?.ToUniversalTime() == new DateTime(2026, 10,
 
 var tracker = new SessionTracker();
 Session? joined = null, left = null;
+int updates = 0;
 tracker.Joined += s => joined = s;
+tracker.Updated += _ => updates++;
 tracker.Left += s => left = s;
 var t = new DateTime(2026, 10, 11, 18, 0, 0);
-foreach (var l in lines.Take(5)) if (LogParser.Parse(l) is { } ev) tracker.Feed(ev, t);
+tracker.Feed(LogParser.Parse(lines[1])!, t);
+Check(joined is { PlaceId: 14823220100, JobId: Job }, "session: shows up on the joining line alone (no network lines needed)");
+foreach (var l in lines.Skip(2).Take(3)) if (LogParser.Parse(l) is { } ev) tracker.Feed(ev, t);
+Check(updates == 2, $"session: address + universe arrive as updates ({updates})");
 Check(joined is { PlaceId: 14823220100, JobId: Job, ServerAddress: "128.116.5.31", UniverseId: 5108158764 }, "session: joined with public address and universe");
 tracker.Feed(LogParser.Parse(lines[5])!, t.AddMinutes(30));
 Check(left is { LeftAt: not null } && tracker.Current is null, "session: left after disconnect");
@@ -45,7 +50,6 @@ var leaves = 0;
 t2.Left += _ => leaves++;
 foreach (var l in lines.Take(4)) if (LogParser.Parse(l) is { } ev) t2.Feed(ev, t);
 t2.Feed(new JoiningEvent("11111111-2222-3333-4444-555555555555", 1, "1.2.3.4"), t);
-t2.Feed(new JoinedEvent("1.2.3.4"), t);
 Check(leaves == 1 && t2.Current?.PlaceId == 1, "teleport ends the old session and starts the new one");
 
 // Watcher: follows the newest *Player* log, delivers complete lines only, and picks up the rest later.
@@ -71,6 +75,13 @@ using (var w = new LogWatcher(dir, l => { lock (got) got.Add(l); }))
     File.WriteAllText(Path.Combine(dir, "0.700.0_20261011T190000Z_Studio_ABC_last.log"), "studio\n");
     await Task.Delay(800);
     Check(w.CurrentFile == file, "watcher: ignores Studio logs");
+    // A newer Player log (new Roblox run) takes over. (Creation time decides on Windows; Linux
+    // containers often have no birth time, so this only checks the switch itself.)
+    var file2 = Path.Combine(dir, "0.700.0_20261011T200000Z_Player_DEF_last.log");
+    await File.WriteAllTextAsync(file2, lines[1] + "\n");
+    await Task.Delay(1300);
+    Check(w.CurrentFile == file2, "watcher: newest-created Player log wins");
+    Check(w.LinesRead == 1, $"watcher: counts lines of the current file ({w.LinesRead})");
 }
 Directory.Delete(dir, true);
 

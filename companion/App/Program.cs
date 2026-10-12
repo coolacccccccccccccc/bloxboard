@@ -48,6 +48,7 @@ sealed class Companion : ApplicationContext
         menu.Items.Add("Recent servers…", null, (_, _) => ShowRecent());
         menu.Items.Add(hideIdle);
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Diagnostics…", null, (_, _) => ShowDiagnostics());
         menu.Items.Add("Bloxboard website", null, (_, _) => Open("https://bloxboard.enesserver.dev/companion.html"));
         menu.Items.Add("Quit", null, (_, _) => Quit());
         menu.Opening += (_, _) => { toggle.Checked = _overlay.Visible; hideIdle.Checked = _settings.HideWhenNotInGame; };
@@ -59,14 +60,22 @@ sealed class Companion : ApplicationContext
         _overlay.ShowRecentRequested += ShowRecent;
 
         _tracker.Joined += s => _ui.Post(_ => OnJoined(s), null);
+        _tracker.Updated += s => _ui.Post(_ => OnUpdated(s), null);
         _tracker.Left += s => _ui.Post(_ => OnLeft(s), null);
         // Read the log that was already open from the start, so starting mid-game still finds the server.
         _watcher = new LogWatcher(LogWatcher.DefaultDirectory, line =>
         {
-            if (LogParser.Parse(line) is { } ev) lock (_tracker) _tracker.Feed(ev, LogParser.Timestamp(line) ?? DateTime.Now);
+            if (LogParser.Parse(line) is not { } ev) return;
+            _store.Log($"log: {ev}");
+            lock (_tracker) _tracker.Feed(ev, LogParser.Timestamp(line) ?? DateTime.Now);
         });
         _watcher.OnError = e => _store.Log($"watcher error: {e}");
-        _watcher.OnFileOpened = f => _store.Log($"reading {Path.GetFileName(f)}");
+        _watcher.OnFileOpened = f =>
+        {
+            _store.Log($"reading {Path.GetFileName(f)}");
+            // A new Roblox log means a new Roblox run: whatever the old log said we were in is over.
+            lock (_tracker) _tracker.Feed(new LeftToAppEvent(), DateTime.Now);
+        };
         _store.Log($"started, watching {LogWatcher.DefaultDirectory}");
         _ = _watcher.Start(fromStartOfNewest: true);
 
@@ -109,6 +118,56 @@ sealed class Companion : ApplicationContext
             // offline or Roblox API hiccup: the overlay still shows the server and timer
             _store.Log($"details failed: {e.Message}");
         }
+    }
+
+    // The public server address (UDMUX) or universe arrived after the join line: refresh location + details.
+    private async void OnUpdated(Session s)
+    {
+        _store.Log($"server details: universe {s.UniverseId} at {s.ServerAddress}");
+        _store.AddToHistory(s);
+        try
+        {
+            if (s.UniverseId == 0) return;
+            var (name, playing) = await _api.Game(s.UniverseId);
+            s.GameName = name;
+            s.Location = await _api.Location(s.ServerAddress);
+            _overlay.UpdateDetails(s, await _api.GameIconUrl(s.UniverseId), playing);
+            _store.AddToHistory(s);
+        }
+        catch (Exception e)
+        {
+            _store.Log($"details failed: {e.Message}");
+        }
+    }
+
+    // Shows what the companion sees, so "nothing shows up" can be pinned down without guessing.
+    private void ShowDiagnostics()
+    {
+        var file = _watcher.CurrentFile;
+        string newest = "none";
+        try
+        {
+            var dir = new DirectoryInfo(LogWatcher.DefaultDirectory);
+            if (dir.Exists)
+            {
+                var all = dir.GetFiles("*.log").OrderByDescending(f => f.CreationTimeUtc).Take(3)
+                    .Select(f => $"  {f.Name}  ({f.CreationTime:HH:mm:ss}, {f.Length / 1024} KB)");
+                newest = Environment.NewLine + string.Join(Environment.NewLine, all);
+            }
+        }
+        catch (Exception e) { newest = e.Message; }
+        var s = _tracker.Current;
+        var text =
+            $"Roblox logs folder: {LogWatcher.DefaultDirectory}{Environment.NewLine}" +
+            $"Folder exists: {Directory.Exists(LogWatcher.DefaultDirectory)}{Environment.NewLine}" +
+            $"Reading: {(file is null ? "nothing yet" : Path.GetFileName(file))}{Environment.NewLine}" +
+            $"Lines read from it: {_watcher.LinesRead:N0}{Environment.NewLine}" +
+            $"Current server: {(s is null ? "none" : $"place {s.PlaceId}, job {s.JobId}, {s.ServerAddress}")}{Environment.NewLine}" +
+            $"Roblox running: {Process.GetProcessesByName("RobloxPlayerBeta").Length > 0}{Environment.NewLine}" +
+            $"Newest logs:{newest}{Environment.NewLine}{Environment.NewLine}" +
+            "Ctrl+C copies this text. Yes opens the folder with companion.log.";
+        if (MessageBox.Show(text, "Bloxboard Companion diagnostics", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+            Open(_store.Directory);
     }
 
     private void OnLeft(Session s)

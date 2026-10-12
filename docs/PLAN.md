@@ -129,6 +129,7 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [ ] **You:** run it on Windows with real Roblox and tell me what looks off
 - [ ] Code signing (no SmartScreen warning): needs a paid certificate, skipped for now
 - [ ] Playtime counted by the companion too (synced to the extension)
+- [ ] Companion v2: full overlay with the extension's features (server browser + filters/regions, player finder, playtime/streaks, friends, notes, favorites) behind the hotkey. Fishstrap Mods can only swap asset files, so no in-game UI.
 
 ## 8. Infrastructure on the homelab
 
