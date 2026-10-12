@@ -167,7 +167,7 @@ html.bbx-replace-servers [id*="public-running-games"] { display: none !important
 .bbx-mutuals { display: inline-flex; align-items: center; gap: 2px; }
 
 /* ---------- home: most played ---------- */
-.bbx-home { margin: 0 0 24px; padding: 16px; }
+.bbx-home { margin: 0 0 24px; padding: 16px; position: relative; z-index: 2; clear: both; width: 100%; box-sizing: border-box; }
 .bbx-home-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 12px; }
 .bbx-home-title { margin: 0; font-size: 20px; font-weight: 800; color: var(--bbx-fg); }
 .bbx-seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 8px; background: var(--bbx-sunk); }

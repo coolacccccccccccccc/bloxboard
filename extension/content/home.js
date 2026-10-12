@@ -75,6 +75,7 @@
       while (anchor.parentElement && anchor.parentElement !== home) anchor = anchor.parentElement;
       return anchor.parentElement ? { after: anchor } : null;
     }],
+    ['top of game list', () => { const l = q('.place-list-container'); return l ? { prepend: l } : null; }],
     ['above home', () => { const h = homeEl(); return h?.parentElement ? { before: h } : null; }],
     ['before first sort', () => { const root = q('main, [role="main"], #content, #container-main') || document.body; const b = firstSortBlock(root); return b?.parentElement ? { before: b } : null; }],
     ['top of content', () => { const c = q('#content, main, [role="main"], #container-main'); return c ? { prepend: c } : null; }],
@@ -98,11 +99,47 @@
       place(spot);
       where = name;
       wasMounted = true;
-      // A spot inside something hidden (collapsed carousel, display:none wrapper) doesn't count.
+      // A spot inside something hidden (collapsed carousel, display:none wrapper) doesn't count,
+      // and neither does one where Roblox's own blocks are drawn over the row.
       if (section.checkVisibility && !section.checkVisibility() && section.offsetHeight === 0) { failed.add(name); continue; }
+      if (overlap()) { failed.add(name); continue; }
       return true;
     }
     return false;
+  }
+
+  // Does a neighbouring block sit on top of the row (negative margins, absolute positioning)?
+  function overlap() {
+    const r = section.getBoundingClientRect();
+    if (r.height === 0) return '';
+    for (const [label, n] of [['next', section.nextElementSibling], ['previous', section.previousElementSibling]]) {
+      if (!n) continue;
+      const b = n.getBoundingClientRect();
+      if (b.height > 0 && b.width > 0 && b.top < r.bottom - 8 && b.bottom > r.top + 8) return `${label} block overlaps`;
+    }
+    return '';
+  }
+  const desc = n => n ? `${n.tagName.toLowerCase()}${n.id ? '#' + n.id : ''}${typeof n.className === 'string' && n.className ? '.' + n.className.trim().split(/\s+/).slice(0, 2).join('.') : ''}` : '-';
+  const box = n => {
+    if (!n) return '-';
+    const r = n.getBoundingClientRect();
+    const cs = getComputedStyle(n);
+    return `${desc(n)} top=${Math.round(r.top + scrollY)} h=${Math.round(r.height)} display=${cs.display} pos=${cs.position} mt=${cs.marginTop} z=${cs.zIndex}`;
+  };
+  function details() {
+    const r = section.getBoundingClientRect();
+    const cs = getComputedStyle(section);
+    let onTop = 'off screen';
+    const y = r.top + 14;
+    if (y > 0 && y < innerHeight) onTop = desc(document.elementFromPoint(r.left + r.width / 2, y));
+    return [
+      `row: ${box(section)} opacity=${cs.opacity} visibility=${cs.visibility} color=${cs.color} bg=${cs.backgroundColor}`,
+      `drawn on top of row header: ${onTop}`,
+      `previous: ${box(section.previousElementSibling)}`,
+      `next: ${box(section.nextElementSibling)}`,
+      `parent: ${box(section.parentElement)} grid=${getComputedStyle(section.parentElement || section).gridTemplateRows}`,
+      `overlap: ${overlap() || 'none'}`,
+    ].join('\n');
   }
 
   // Report for Settings → Diagnostics (what the real home page looks like when the row misbehaves).
@@ -119,11 +156,11 @@
   let lastReport = '';
   const report = () => {
     const r = section.getBoundingClientRect();
-    const data = { v: chrome.runtime.getManifest().version, url: location.pathname, where: section.isConnected ? where : 'not on page', removals, visible: section.isConnected && r.height > 0, size: `${Math.round(r.width)}x${Math.round(r.height)}`, failed: [...failed] };
+    const data = { v: chrome.runtime.getManifest().version, url: location.pathname, where: section.isConnected ? where : 'not on page', removals, visible: section.isConnected && r.height > 0 && !overlap(), size: `${Math.round(r.width)}x${Math.round(r.height)}`, top: Math.round(r.top + scrollY), failed: [...failed] };
     const key = JSON.stringify(data);
     if (key === lastReport) return;
     lastReport = key;
-    BB.set('homeDebug', { ...data, at: Date.now(), outline: outline(document.body, 0, []).join('\n') }).catch(() => {});
+    BB.set('homeDebug', { ...data, at: Date.now(), outline: (section.isConnected ? details() + '\n\n' : '') + outline(document.body, 0, []).join('\n') }).catch(() => {});
   };
 
   renderSeg();

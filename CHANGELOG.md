@@ -1,5 +1,10 @@
 ## Changelog
 
+### 0.8.3 · 12 October 2026
+
+- Fix: the "Most played" row was on the Roblox home page but drawn underneath the friends row. Roblox lays that page out with floating columns; the row now always starts below them, sits above its neighbours, and moves to another spot if something still overlaps it.
+- Diagnostics: the home page report also says what is drawn on top of the row and how the blocks around it are positioned.
+
 ### 0.8.2 · 12 October 2026
 
 - Fix: the "Most played" row could still vanish on the Roblox home page. It now has more places to go (above the home feed, or before the first game row like "Continue") and skips spots where it would be hidden.
