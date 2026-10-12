@@ -15,14 +15,23 @@ public sealed class Session
     public DateTime? ServerStartedUtc { get; set; }
 }
 
-/// <summary>Turns log events into "joined a server" / "left" with the details we know.</summary>
+/// <summary>
+/// Turns log events into "joined a server" / "left". Same rules as Fishstrap's ActivityWatcher:
+/// a server counts as joined once Roblox confirms the connection; disconnect lines only end a
+/// session that was joined; "back to the app" only cancels a join that never connected (it can
+/// show up during teleports). We show the server already while joining, so nothing waits.
+/// </summary>
 public sealed class SessionTracker
 {
     public Session? Current { get; private set; }
+    /// <summary>True once Roblox confirmed the connection to the current server.</summary>
+    public bool Connected { get; private set; }
 
-    /// <summary>Fired as soon as Roblox starts joining a server ("! Joining game"), so the overlay never waits on later lines.</summary>
+    /// <summary>Live: a disconnect line only ends a connected session (Fishstrap's rule). The old-log
+    /// importer turns this off, since some logs lack the "connected" line.</summary>
+    public bool StrictDisconnect { get; init; } = true;
+
     public event Action<Session>? Joined;
-    /// <summary>Fired when a later line adds details (public address, universe) to the current session.</summary>
     public event Action<Session>? Updated;
     public event Action<Session>? Left;
 
@@ -31,8 +40,10 @@ public sealed class SessionTracker
         switch (ev)
         {
             case JoiningEvent j:
-                if (Current is not null) Leave(now); // teleport: the old server is done
+                if (Current is not null && Current.JobId == j.JobId && !Connected) break; // same join logged twice
+                if (Current is not null) Leave(now); // teleport or a missed disconnect: the old server is done
                 Current = new Session { PlaceId = j.PlaceId, JobId = j.JobId, ServerAddress = j.MachineAddress, JoinedAt = now };
+                Connected = false;
                 Joined?.Invoke(Current);
                 break;
             case UniverseEvent u when Current is not null:
@@ -49,11 +60,22 @@ public sealed class SessionTracker
                 Current.ServerAddress = x.Address; // the public address players actually connect to
                 Updated?.Invoke(Current);
                 break;
-            case DisconnectedEvent:
-            case LeftToAppEvent:
-                if (Current is not null) Leave(now);
+            case JoinedEvent when Current is not null:
+                Connected = true;
+                break;
+            case DisconnectedEvent when Current is not null && (Connected || !StrictDisconnect):
+                Leave(now);
+                break;
+            case LeftToAppEvent when Current is not null && !Connected:
+                Leave(now); // a join that was cancelled or failed
                 break;
         }
+    }
+
+    /// <summary>Roblox itself closed (or a crash left a session open): end it.</summary>
+    public void RobloxClosed(DateTime now)
+    {
+        if (Current is not null) Leave(now);
     }
 
     private void Leave(DateTime now)
@@ -61,6 +83,7 @@ public sealed class SessionTracker
         var s = Current!;
         s.LeftAt = now;
         Current = null;
+        Connected = false;
         Left?.Invoke(s);
     }
 }

@@ -52,6 +52,27 @@ foreach (var l in lines.Take(4)) if (LogParser.Parse(l) is { } ev) t2.Feed(ev, t
 t2.Feed(new JoiningEvent("11111111-2222-3333-4444-555555555555", 1, "1.2.3.4"), t);
 Check(leaves == 1 && t2.Current?.PlaceId == 1, "teleport ends the old session and starts the new one");
 
+// Fishstrap rules: stray lines while joining / during teleports don't end a session.
+var sm = new SessionTracker();
+int smLeft = 0;
+sm.Left += _ => smLeft++;
+sm.Feed(LogParser.Parse(lines[1])!, t);                       // joining
+sm.Feed(new DisconnectedEvent(), t);                           // stray disconnect before connecting
+Check(sm.Current is not null && smLeft == 0, "rules: disconnect before connecting is ignored");
+sm.Feed(LogParser.Parse(lines[3])!, t);                       // connected
+sm.Feed(new LeftToAppEvent(), t);                              // "back to app" line during a teleport
+Check(sm.Current is not null && smLeft == 0, "rules: back-to-app while connected doesn't end the session");
+sm.Feed(LogParser.Parse(lines[1])!, t);                       // same join logged again while connected = new visit
+sm.Feed(LogParser.Parse(lines[3])!, t);
+sm.Feed(new DisconnectedEvent(), t);
+Check(sm.Current is null, "rules: disconnect after connecting ends the session");
+sm.Feed(LogParser.Parse(lines[1])!, t);
+sm.Feed(new LeftToAppEvent(), t);
+Check(sm.Current is null, "rules: back-to-app cancels a join that never connected");
+sm.Feed(LogParser.Parse(lines[1])!, t);
+sm.RobloxClosed(t);
+Check(sm.Current is null, "rules: Roblox closing ends the session");
+
 // Watcher: follows the newest *Player* log, delivers complete lines only, and picks up the rest later.
 var dir = Path.Combine(Path.GetTempPath(), "bbx-logs-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(dir);
@@ -80,8 +101,12 @@ using (var w = new LogWatcher(dir, l => { lock (got) got.Add(l); }))
     var file2 = Path.Combine(dir, "0.700.0_20261011T200000Z_Player_DEF_last.log");
     await File.WriteAllTextAsync(file2, lines[1] + "\n");
     await Task.Delay(1300);
-    Check(w.CurrentFile == file2, "watcher: newest-created Player log wins");
-    Check(w.LinesRead == 1, $"watcher: counts lines of the current file ({w.LinesRead})");
+    Check(w.CurrentFile == file2, "watcher: a new Player log is picked up");
+    Check(w.LinesRead == 4, $"watcher: counts lines ({w.LinesRead})");
+    // The older log keeps being read too (Roblox can have more than one Player log open).
+    await File.AppendAllTextAsync(file, lines[2] + "\n");
+    await Task.Delay(1300);
+    lock (got) Check(got.Count == 5 && LogParser.Parse(got[^1]) is UdmuxEvent, "watcher: lines added to an older log still arrive");
 }
 Directory.Delete(dir, true);
 

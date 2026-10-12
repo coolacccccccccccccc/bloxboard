@@ -4,7 +4,7 @@ namespace Bloxboard.Companion.App;
 
 static class Program
 {
-    public const string Version = "2.0.0";
+    public const string Version = "2.0.1";
 
     [STAThread]
     static void Main(string[] args)
@@ -106,6 +106,8 @@ sealed class Companion : ApplicationContext, ICompanionHost
     // ---------- ICompanionHost (called from any thread) ----------
 
     public void OpenUrl(string url) => Open(url);
+
+    public bool? IsRobloxRunning() => Process.GetProcessesByName("RobloxPlayerBeta").Length > 0;
 
     public void SettingsChanged() => _ui.Post(_ =>
     {

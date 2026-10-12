@@ -12,6 +12,8 @@ public interface ICompanionHost
     void OpenUrl(string url);
     /// <summary>Settings changed from the panel (overlay visibility etc.).</summary>
     void SettingsChanged();
+    /// <summary>Is the Roblox player running? null = can't tell (tests).</summary>
+    bool? IsRobloxRunning() => null;
 }
 
 /// <summary>
@@ -67,11 +69,7 @@ public sealed class CompanionService : IDisposable
             lock (Tracker) Tracker.Feed(ev, LogParser.Timestamp(line) ?? DateTime.Now);
         });
         Watcher.OnError = e => Store.Log($"watcher error: {e}");
-        Watcher.OnFileOpened = f =>
-        {
-            Store.Log($"reading {Path.GetFileName(f)}");
-            lock (Tracker) Tracker.Feed(new LeftToAppEvent(), DateTime.Now);
-        };
+        Watcher.OnFileOpened = f => Store.Log($"reading {Path.GetFileName(f)}");
 
         Server = new LocalServer(HandleApi, ws => Bridge.Run(ws), StaticFile) { OnError = e => Store.Log($"server error: {e.Message}") };
     }
@@ -83,6 +81,27 @@ public sealed class CompanionService : IDisposable
         catch (Exception e) { Store.Log($"panel server failed: {e.Message}"); }
         _ = Watcher.Start(fromStartOfNewest: true);
         _ = Task.Run(ImportOldLogs);
+        _ = Task.Run(async () =>
+        {
+            // Roblox closed (or crashed without a disconnect line): end the session after ~10 s.
+            int gone = 0;
+            while (true)
+            {
+                await Task.Delay(5000);
+                bool inGame;
+                lock (Tracker) inGame = Tracker.Current is not null;
+                if (!inGame) { gone = 0; continue; }
+                bool? running;
+                try { running = _host.IsRobloxRunning(); } catch { running = null; }
+                gone = running == false ? gone + 1 : 0;
+                if (gone >= 2)
+                {
+                    Store.Log("Roblox isn't running anymore: ending the session");
+                    lock (Tracker) Tracker.RobloxClosed(DateTime.Now);
+                    gone = 0;
+                }
+            }
+        });
         _ = Task.Run(async () =>
         {
             // While playing, save the running session every minute so a crash loses little.
@@ -508,6 +527,7 @@ public sealed class CompanionService : IDisposable
                     exists = dir.Exists,
                     reading = Watcher.CurrentFile is { } f ? Path.GetFileName(f) : null,
                     linesRead = Watcher.LinesRead,
+                    connected = Tracker.Connected,
                     newest = dir.Exists ? dir.GetFiles("*.log").OrderByDescending(x => x.CreationTimeUtc).Take(5)
                         .Select(x => new { name = x.Name, created = x.CreationTime, kb = x.Length / 1024 }).ToArray() : Array.Empty<object>(),
                     dataFolder = Store.Directory,

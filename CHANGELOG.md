@@ -1,5 +1,10 @@
 ## Changelog
 
+### Companion 2.0.1 · 12 October 2026
+
+- Fix: games were detected unreliably. The companion now follows every recent Roblox player log instead of jumping to the newest file (which could throw your game away), and uses Fishstrap's rules: stray "disconnect" lines while joining and "back to the app" lines during teleports no longer end your session.
+- New: when Roblox closes or crashes without saying so in its log, the session ends within about 10 seconds instead of staying stuck.
+
 ### Companion 2.0.0 + extension 0.8.0 · 12 October 2026
 
 - Companion: new panel (Ctrl+Shift+B, or the tray icon) with the extension's features for the Roblox app: Now playing (server location, uptime, players/ping/FPS, invite, server hop by size or ping, rejoin, favorite, notes), a server browser with filters, regions and friends' servers, player finder, friends with Join, game search and favorites, and playtime stats with streaks, top games and an hour heatmap.

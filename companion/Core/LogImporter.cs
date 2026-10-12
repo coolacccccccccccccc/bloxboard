@@ -8,7 +8,7 @@ public static class LogImporter
 {
     public static List<PlaySession> Read(IEnumerable<string> lines)
     {
-        var tracker = new SessionTracker();
+        var tracker = new SessionTracker { StrictDisconnect = false };
         var found = new List<PlaySession>();
         DateTime lastTime = default;
         void Close(Session s, DateTime end) => found.Add(new PlaySession
