@@ -8,6 +8,15 @@ Works in Chrome, Edge, Brave, Helium and other Chromium browsers.
 
 ![The Bloxboard dashboard, shown with sample data](site/img/dash-home.png)
 
+## Why Bloxboard?
+**Ever get tired of the features you need sitting behind a paywall?**
+Well, we don't do that! All of our features are free to use!
+We know the struggles of trying to find a free copy, all for a few minor quality of life additions.
+
+## Is it safe?
+**Yes!**
+It is safe, and if you don't believe us, check the source code. It is fully open sourced. See [Privacy](#privacy) for exactly what it talks to.
+
 ## What it does
 
 On roblox.com it adds one panel to game pages and a thin bar to profiles. Everything else lives in its own dashboard tab (click the Bloxboard icon in your toolbar).
