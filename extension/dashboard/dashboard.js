@@ -638,6 +638,14 @@ pages.settings = async (root) => {
       await check('Robux history', async () => { await api(`https://economy.roblox.com/v2/users/${me.id}/transaction-totals?timeFrame=Week&transactionType=summary`); return 'reachable'; });
       await check('Avatar renderer', async () => { const def = await myAvatar(me.id); await renderAvatar(def); return 'rendered'; });
     }
+    let homeOutline = '';
+    await check('Most played row (last home visit)', async () => {
+      const h = await BB.get('homeDebug', null);
+      if (!h) throw new Error('no report yet: open roblox.com/home, wait 10 seconds, then run this again');
+      homeOutline = `\nHome page report (v${h.v}, ${new Date(h.at).toLocaleString()}): where=${h.where} visible=${h.visible} size=${h.size} removals=${h.removals} failed=${h.failed.join(',') || '-'}\n${h.outline}`;
+      if (!h.visible) throw new Error(`not visible (${h.where}, removed ${h.removals}x) · ${BB.ago(h.at)}`);
+      return `${h.where} · ${BB.ago(h.at)}`;
+    });
     await check('Item values (Rolimons)', async () => `${Object.keys(await BB.values()).length} items`);
     let server = null;
     await check('Server list', async () => {
@@ -653,7 +661,7 @@ pages.settings = async (root) => {
       return `${v.city}, ${v.cc}`;
     });
     diagBox.append(el('button', { class: 'btn ghost sm', type: 'button', style: { marginTop: '8px' }, text: 'Copy result', onclick: async (ev) => {
-      try { await navigator.clipboard.writeText(`Bloxboard ${chrome.runtime.getManifest().version} diagnostics\n${lines.join('\n')}`); ev.target.textContent = 'Copied'; } catch { ev.target.textContent = 'Copy failed'; }
+      try { await navigator.clipboard.writeText(`Bloxboard ${chrome.runtime.getManifest().version} diagnostics\n${lines.join('\n')}${homeOutline}`); ev.target.textContent = 'Copied'; } catch { ev.target.textContent = 'Copy failed'; }
     } }));
     e.target.disabled = false;
   }

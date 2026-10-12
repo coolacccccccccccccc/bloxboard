@@ -1,5 +1,10 @@
 ## Changelog
 
+### 0.8.2 · 12 October 2026
+
+- Fix: the "Most played" row could still vanish on the Roblox home page. It now has more places to go (above the home feed, or before the first game row like "Continue") and skips spots where it would be hidden.
+- New: Settings → Diagnostics → "Most played row" reports where the row landed on your last home page visit; "Copy result" includes a short outline of the page so layout changes can be fixed quickly.
+
 ### 0.8.1 · 12 October 2026
 
 - Fix: the "Most played" row on the Roblox home page disappeared once the page finished loading. Roblox re-draws its home page after loading; Bloxboard now keeps putting the row back for as long as the page is open.

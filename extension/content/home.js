@@ -42,40 +42,89 @@
       el('div', { class: 'bbx-meter' }, el('i', { style: { width: `${Math.max(4, (g.minutes / max) * 100)}%` } })))));
   }
 
-  // Place the row near the top of the home feed: after the friends carousel if we can find it.
-  // Roblox's home is a React app that re-renders (and throws our row out) while and after it
-  // loads, so keep watching for as long as the page is open and put the row back when it's gone.
-  // If Roblox keeps removing it from inside the feed, sit just above the feed instead.
+  // Place the row near the top of the home feed. Roblox's home is a React app that re-renders
+  // (and throws our row out) while and after it loads, and its layout changes now and then, so:
+  // try several spots in order, skip spots where the row would be hidden, keep watching for as
+  // long as the page is open, and leave a small report for Settings → Diagnostics.
+  const failed = new Set();
   let removals = 0;
   let wasMounted = false;
+  let where = '';
+
+  const q = sel => document.querySelector(sel);
+  const homeEl = () => q('#HomeContainer, .home-container, [data-testid="home-page-container"], [data-testid*="home-page"], [class*="home-page-container"]');
+  const SORT_TITLE = /^(continue|recommended for you|today's picks|favorites|your favorites|friends|up next|top trending|popular|sponsored)/i;
+
+  // A game-sort section: the block around a heading like "Recommended For You".
+  function firstSortBlock(root) {
+    for (const h of root.querySelectorAll('h2, h3, [class*="sort-header"], [class*="container-header"]')) {
+      if (section.contains(h) || !SORT_TITLE.test((h.textContent || '').trim())) continue;
+      let block = h;
+      while (block.parentElement && block.parentElement !== root && block.parentElement.children.length < 3) block = block.parentElement;
+      return block;
+    }
+    return null;
+  }
+
+  const SPOTS = [
+    ['after friends', () => {
+      const home = homeEl();
+      const friends = q('.friend-carousel-container, [class*="friends-carousel"], .people-list-container, [class*="friend-carousel"], [data-testid*="friend"]');
+      if (!friends || !home?.contains(friends)) return null;
+      let anchor = friends;
+      while (anchor.parentElement && anchor.parentElement !== home) anchor = anchor.parentElement;
+      return anchor.parentElement ? { after: anchor } : null;
+    }],
+    ['above home', () => { const h = homeEl(); return h?.parentElement ? { before: h } : null; }],
+    ['before first sort', () => { const root = q('main, [role="main"], #content, #container-main') || document.body; const b = firstSortBlock(root); return b?.parentElement ? { before: b } : null; }],
+    ['top of content', () => { const c = q('#content, main, [role="main"], #container-main'); return c ? { prepend: c } : null; }],
+  ];
+
+  function place(spot) {
+    if (spot.after) { if (section.previousElementSibling !== spot.after) spot.after.after(section); }
+    else if (spot.before) { if (section.nextElementSibling !== spot.before) spot.before.before(section); }
+    else if (spot.prepend) { if (section.parentElement !== spot.prepend) spot.prepend.prepend(section); }
+  }
+
   function mount() {
     if (wasMounted && !section.isConnected) removals++;
-    const home = document.querySelector('#HomeContainer, .home-container, [data-testid="home-page-container"]');
+    // Removed over and over from inside the feed: stop fighting React there.
+    if (removals >= 4) failed.add('after friends');
     section.classList.toggle('bbx-dark', BBX_isDark());
-    if (removals < 4) {
-      const friends = document.querySelector('.friend-carousel-container, [class*="friends-carousel"], .people-list-container');
-      // Walk up from the friends carousel to the block that sits directly inside the home container.
-      let anchor = null;
-      if (friends && home?.contains(friends)) {
-        anchor = friends;
-        while (anchor.parentElement && anchor.parentElement !== home) anchor = anchor.parentElement;
-      }
-      if (anchor?.parentElement) {
-        if (section.previousElementSibling !== anchor) anchor.after(section);
-        wasMounted = true;
-        return true;
-      }
-    } else if (home?.parentElement) {
-      if (section.nextElementSibling !== home) home.before(section);
+    for (const [name, find] of SPOTS) {
+      if (failed.has(name)) continue;
+      const spot = find();
+      if (!spot) continue;
+      place(spot);
+      where = name;
       wasMounted = true;
+      // A spot inside something hidden (collapsed carousel, display:none wrapper) doesn't count.
+      if (section.checkVisibility && !section.checkVisibility() && section.offsetHeight === 0) { failed.add(name); continue; }
       return true;
     }
-    const fallback = home || document.querySelector('#content');
-    if (!fallback) return false;
-    if (!section.isConnected) fallback.prepend(section);
-    wasMounted = true;
-    return true;
+    return false;
   }
+
+  // Report for Settings → Diagnostics (what the real home page looks like when the row misbehaves).
+  function outline(node, depth, out) {
+    for (const c of node.children) {
+      if (out.length > 90 || /^(SCRIPT|STYLE|LINK|NOSCRIPT|SVG|PATH|IMG)$/i.test(c.tagName) || c === section) continue;
+      const cls = typeof c.className === 'string' ? c.className.trim().split(/\s+/).slice(0, 2).join('.') : '';
+      const tid = c.getAttribute('data-testid');
+      out.push(`${'  '.repeat(depth)}${c.tagName.toLowerCase()}${c.id ? '#' + c.id : ''}${cls ? '.' + cls : ''}${tid ? `[${tid}]` : ''}`);
+      if (depth < 5) outline(c, depth + 1, out);
+    }
+    return out;
+  }
+  let lastReport = '';
+  const report = () => {
+    const r = section.getBoundingClientRect();
+    const data = { v: chrome.runtime.getManifest().version, url: location.pathname, where: section.isConnected ? where : 'not on page', removals, visible: section.isConnected && r.height > 0, size: `${Math.round(r.width)}x${Math.round(r.height)}`, failed: [...failed] };
+    const key = JSON.stringify(data);
+    if (key === lastReport) return;
+    lastReport = key;
+    BB.set('homeDebug', { ...data, at: Date.now(), outline: outline(document.body, 0, []).join('\n') }).catch(() => {});
+  };
 
   renderSeg();
   render();
@@ -86,4 +135,6 @@
     queued = true;
     requestAnimationFrame(() => { queued = false; mount(); });
   }).observe(document.body, { childList: true, subtree: true });
+  setInterval(report, 3000);
+  setTimeout(report, 1500);
 })();
