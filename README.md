@@ -17,6 +17,9 @@ We know the struggles of trying to find a free copy, all for a few minor quality
 **Yes!**
 It is safe, and if you don't believe us, check the source code. It is fully open sourced. See [Privacy](#privacy) for exactly what it talks to.
 
+Q: Why isn't it on the Chrome Web Store?
+A: We haven't got around to that yet, but just you wait!
+
 ## What it does
 
 On roblox.com it adds one panel to game pages and a thin bar to profiles. Everything else lives in its own dashboard tab (click the Bloxboard icon in your toolbar).
