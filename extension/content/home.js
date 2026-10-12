@@ -43,33 +43,47 @@
   }
 
   // Place the row near the top of the home feed: after the friends carousel if we can find it.
+  // Roblox's home is a React app that re-renders (and throws our row out) while and after it
+  // loads, so keep watching for as long as the page is open and put the row back when it's gone.
+  // If Roblox keeps removing it from inside the feed, sit just above the feed instead.
+  let removals = 0;
+  let wasMounted = false;
   function mount() {
-    const friends = document.querySelector('.friend-carousel-container, [class*="friends-carousel"], .people-list-container');
+    if (wasMounted && !section.isConnected) removals++;
     const home = document.querySelector('#HomeContainer, .home-container, [data-testid="home-page-container"]');
-    // Walk up from the friends carousel to the block that sits directly inside the home container.
-    let anchor = null;
-    if (friends && home?.contains(friends)) {
-      anchor = friends;
-      while (anchor.parentElement && anchor.parentElement !== home) anchor = anchor.parentElement;
-    }
     section.classList.toggle('bbx-dark', BBX_isDark());
-    if (anchor?.parentElement) {
-      if (section.previousElementSibling !== anchor) anchor.after(section);
+    if (removals < 4) {
+      const friends = document.querySelector('.friend-carousel-container, [class*="friends-carousel"], .people-list-container');
+      // Walk up from the friends carousel to the block that sits directly inside the home container.
+      let anchor = null;
+      if (friends && home?.contains(friends)) {
+        anchor = friends;
+        while (anchor.parentElement && anchor.parentElement !== home) anchor = anchor.parentElement;
+      }
+      if (anchor?.parentElement) {
+        if (section.previousElementSibling !== anchor) anchor.after(section);
+        wasMounted = true;
+        return true;
+      }
+    } else if (home?.parentElement) {
+      if (section.nextElementSibling !== home) home.before(section);
+      wasMounted = true;
       return true;
     }
     const fallback = home || document.querySelector('#content');
     if (!fallback) return false;
     if (!section.isConnected) fallback.prepend(section);
+    wasMounted = true;
     return true;
   }
 
   renderSeg();
   render();
-  let tries = 0;
-  const iv = setInterval(() => {
-    tries++;
-    mount();
-    if (tries > 40) clearInterval(iv); // Roblox's home feed renders in waves for ~20 s
-  }, 500);
   mount();
+  let queued = false;
+  new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; mount(); });
+  }).observe(document.body, { childList: true, subtree: true });
 })();

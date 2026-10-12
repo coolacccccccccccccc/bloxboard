@@ -1,5 +1,10 @@
 ## Changelog
 
+### 0.8.1 · 12 October 2026
+
+- Fix: the "Most played" row on the Roblox home page disappeared once the page finished loading. Roblox re-draws its home page after loading; Bloxboard now keeps putting the row back for as long as the page is open.
+- Fix: roblox.com themes barely changed anything. They now recolor Roblox's new design (cards, menus, the Play button and other buttons, links, header) and switch Roblox to the matching mode: dark themes to dark mode, Sakura to light mode.
+
 ### Companion 2.0.1 · 12 October 2026
 
 - Fix: games were detected unreliably. The companion now follows every recent Roblox player log instead of jumping to the newest file (which could throw your game away), and uses Fishstrap's rules: stray "disconnect" lines while joining and "back to the app" lines during teleports no longer end your session.

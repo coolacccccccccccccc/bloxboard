@@ -715,7 +715,7 @@ pages.settings = async (root) => {
       toggle('quickSearch', 'Quick search', 'Instant games, limiteds and players under Roblox\'s search box, with a Play button.'),
       toggle('gameCardPlaytime', 'Playtime on game cards', 'A small badge with your time played on game cards across roblox.com.'),
       el('label', { class: 'switch' },
-        el('div', { class: 'grow' }, el('div', { class: 'item-title', text: 'roblox.com theme' }), el('div', { class: 'small muted', text: 'Recolors Roblox\'s background, header and buttons. Dark themes only show when Roblox is in dark mode, Sakura only in light mode.' })),
+        el('div', { class: 'grow' }, el('div', { class: 'item-title', text: 'roblox.com theme' }), el('div', { class: 'small muted', text: 'Recolors Roblox\'s pages: background, cards, header, buttons and links. Dark themes switch Roblox to dark mode, Sakura to light mode. Reload roblox.com after changing it.' })),
         el('select', { class: 'input', onchange: async (e) => { s.theme = e.target.value; await BB.set('settings', s); } },
           [['', 'Off'], ['midnight', 'Midnight'], ['ocean', 'Ocean'], ['forest', 'Forest'], ['grape', 'Grape'], ['sakura', 'Sakura']].map(([v, t]) => el('option', { value: v, text: t, selected: s.theme === v })))),
       el('p', { class: 'small muted', style: { marginTop: '8px' }, text: s.preferredRegion ? `Preferred region: ${s.preferredRegion}. Change it with the Region filter on any game page.` : 'Pick a region in the Region filter on a game page and it becomes your preferred region everywhere.' })),
