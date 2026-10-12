@@ -128,8 +128,9 @@ Legend: done · in progress · to do. This file is the source of truth; the webs
 - [x] Tested: core tests on Linux (incl. live Roblox APIs) + the real .exe under Wine with a fake Roblox log
 - [ ] **You:** run it on Windows with real Roblox and tell me what looks off
 - [ ] Code signing (no SmartScreen warning): needs a paid certificate, skipped for now
-- [ ] Playtime counted by the companion too (synced to the extension)
-- [ ] Companion v2: full overlay with the extension's features (server browser + filters/regions, player finder, playtime/streaks, friends, notes, favorites) behind the hotkey. Fishstrap Mods can only swap asset files, so no in-game UI.
+- [x] Playtime counted by the companion too (synced to the extension)
+- [x] Companion v2: panel with the extension's features (server browser + filters/regions, player finder, playtime/streaks, friends, notes, favorites) behind Ctrl+Shift+B. Fishstrap Mods can only swap asset files, so no in-game UI.
+- [x] Browser link: the extension does logged-in requests for the companion over ws://127.0.0.1 (optional permission, Link button)
 
 ## 8. Infrastructure on the homelab
 

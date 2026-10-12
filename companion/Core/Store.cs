@@ -10,6 +10,31 @@ public sealed class Settings
     public bool HideWhenNotInGame { get; set; } = false;
     public double Opacity { get; set; } = 0.94;
     public bool Compact { get; set; } = false;
+
+    // Panel (2.0)
+    public int PanelX { get; set; } = -1;
+    public int PanelY { get; set; } = -1;
+    public int PanelW { get; set; } = 1040;
+    public int PanelH { get; set; } = 700;
+    public bool PanelOnTop { get; set; } = true;
+    public bool OpenPanelOnJoin { get; set; } = false;
+    public long MeUserId { get; set; }
+    public List<string> ImportedLogs { get; set; } = new();
+}
+
+public sealed class FavoriteGame
+{
+    public long UniverseId { get; set; }
+    public long PlaceId { get; set; }
+    public string Name { get; set; } = "";
+    public DateTime Added { get; set; }
+}
+
+/// <summary>Favorite games and per-game notes (library.json).</summary>
+public sealed class Library
+{
+    public List<FavoriteGame> Favorites { get; set; } = new();
+    public Dictionary<long, string> Notes { get; set; } = new();
 }
 
 /// <summary>Settings and server history in %APPDATA%\Bloxboard.</summary>
@@ -61,6 +86,9 @@ public sealed class Store
 
     public Settings LoadSettings() => Load("companion-settings.json", new Settings());
     public void SaveSettings(Settings s) => Save("companion-settings.json", s);
+
+    public Library LoadLibrary() => Load("library.json", new Library());
+    public void SaveLibrary(Library l) => Save("library.json", l);
 
     public List<Session> LoadHistory() => Load("server-history.json", new List<Session>());
 

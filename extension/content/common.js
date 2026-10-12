@@ -8,3 +8,6 @@ function BBX_isDark() {
   const [r, g, b] = rgb.map(Number);
   return (r * 299 + g * 587 + b * 114) / 1000 < 128;
 }
+
+// Wake the background worker so it can re-link with the Windows companion if that is running.
+try { chrome.runtime.sendMessage({ type: 'companionWake' }).catch(() => {}); } catch {}

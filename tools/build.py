@@ -153,13 +153,17 @@ def build_site(version, ext_id, zip_path, crx_path):
 
     # Windows companion (built separately by tools/build-companion.sh).
     exe = os.path.join(DIST, 'BloxboardCompanion.exe')
-    comp = {'{{COMP_VERSION}}': '1.0.0', '{{COMP_MB}}': '?', '{{COMP_SHA}}': 'not built yet'}
+    comp = {'{{COMP_VERSION}}': '1.0.0', '{{COMP_MB}}': '?', '{{COMP_SHA}}': 'not built yet', '{{COMP_FILE}}': 'BloxboardCompanion.exe'}
     if os.path.exists(exe):
         import hashlib
         shutil.copy(exe, os.path.join(dl, 'BloxboardCompanion.exe'))
         csproj = open(os.path.join(ROOT, 'companion', 'App', 'App.csproj')).read()
+        comp_ver = re.search(r'<Version>([^<]+)</Version>', csproj).group(1)
+        # Versioned copy for the download links: Cloudflare caches the plain name for hours.
+        shutil.copy(exe, os.path.join(dl, f'BloxboardCompanion-{comp_ver}.exe'))
         comp = {
-            '{{COMP_VERSION}}': re.search(r'<Version>([^<]+)</Version>', csproj).group(1),
+            '{{COMP_FILE}}': f'BloxboardCompanion-{comp_ver}.exe',
+            '{{COMP_VERSION}}': comp_ver,
             '{{COMP_MB}}': str(round(os.path.getsize(exe) / 1024 / 1024)),
             '{{COMP_SHA}}': hashlib.sha256(open(exe, 'rb').read()).hexdigest(),
         }
@@ -188,6 +192,8 @@ def build_site(version, ext_id, zip_path, crx_path):
             text = open(path).read()
             for k, v in replacements.items():
                 text = text.replace(k, v)
+            # Same for the extension downloads.
+            text = text.replace('href="download/bloxboard.zip"', f'href="download/bloxboard-{version}.zip"').replace('href="download/bloxboard.crx"', f'href="download/bloxboard-{version}.crx"')
             open(path, 'w').write(text)
 
 

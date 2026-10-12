@@ -10,6 +10,8 @@ sealed class OverlayForm : Form
 {
     public event Action? ShowRecentRequested;
     public event Action? HideRequested;
+    public event Action? PanelRequested;
+    public event Action? OverlayHotkey;
 
     private readonly RobloxApi _api;
     private readonly Settings _settings;
@@ -59,7 +61,7 @@ sealed class OverlayForm : Form
         var brand = Theme.Label("BLOXBOARD", 7.5f, Theme.Accent, FontStyle.Bold);
         var hide = new Label { Text = "✕", AutoSize = true, ForeColor = Theme.Muted, Font = Theme.Font(9f), Cursor = Cursors.Hand, Margin = new Padding(0) };
         hide.Click += (_, _) => HideRequested?.Invoke();
-        var hint = Theme.Label("Ctrl+Shift+B", 7.5f, Theme.Muted);
+        var hint = Theme.Label("Ctrl+Shift+B  panel", 7.5f, Theme.Muted);
 
         var head = new TableLayoutPanel { ColumnCount = 3, RowCount = 1, AutoSize = true, Dock = DockStyle.Top, BackColor = Color.Transparent, Margin = new Padding(0, 0, 0, 8) };
         head.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -104,18 +106,25 @@ sealed class OverlayForm : Form
     {
         base.OnHandleCreated(e);
         Native.RoundCorners(Handle);
+        // Ctrl+Shift+B: the big panel. Ctrl+Shift+N: this mini overlay.
         Native.RegisterHotKey(Handle, 1, Native.MOD_CONTROL | Native.MOD_SHIFT | Native.MOD_NOREPEAT, (uint)Keys.B);
+        Native.RegisterHotKey(Handle, 2, Native.MOD_CONTROL | Native.MOD_SHIFT | Native.MOD_NOREPEAT, (uint)Keys.N);
     }
 
     protected override void OnHandleDestroyed(EventArgs e)
     {
         Native.UnregisterHotKey(Handle, 1);
+        Native.UnregisterHotKey(Handle, 2);
         base.OnHandleDestroyed(e);
     }
 
     protected override void WndProc(ref Message m)
     {
-        if (m.Msg == Native.WM_HOTKEY) Visible = !Visible;
+        if (m.Msg == Native.WM_HOTKEY)
+        {
+            if (m.WParam == 1) PanelRequested?.Invoke();
+            else OverlayHotkey?.Invoke();
+        }
         base.WndProc(ref m);
     }
 
@@ -177,9 +186,11 @@ sealed class OverlayForm : Form
         _title.Text = "Waiting for Roblox…";
         _line1.Text = "Join a game and your server shows up here.";
         _line2.Text = "";
+        var panel = Theme.Button("Open panel", primary: true);
+        panel.Click += (_, _) => PanelRequested?.Invoke();
         var recent = Theme.Button("Recent servers");
         recent.Click += (_, _) => ShowRecentRequested?.Invoke();
-        SetButtons(recent);
+        SetButtons(panel, recent);
     }
 
     public void ShowSession(Session s)
@@ -211,10 +222,10 @@ sealed class OverlayForm : Form
         var web = Theme.Button("Bloxboard ↗");
         web.Click += (_, _) => Open($"https://www.roblox.com/games/{s.PlaceId}#bbx-find");
 
-        var recent = Theme.Button("Recent");
-        recent.Click += (_, _) => ShowRecentRequested?.Invoke();
+        var panel = Theme.Button("Panel");
+        panel.Click += (_, _) => PanelRequested?.Invoke();
 
-        SetButtons(invite, hop, rejoin, web, recent);
+        SetButtons(invite, hop, rejoin, panel, web);
     }
 
     public void UpdateDetails(Session s, string? iconUrl, int playing)
@@ -233,6 +244,8 @@ sealed class OverlayForm : Form
         var time = t.TotalHours >= 1 ? $"{(int)t.TotalHours}h {t.Minutes}m" : $"{Math.Max(0, t.Minutes)}m";
         _line1.Text = string.IsNullOrEmpty(_session.Location) ? $"In this server for {time}" : $"{_session.Location} · here {time}";
     }
+
+    public void ApplyOpacity() => Opacity = Math.Clamp(_settings.Opacity, 0.5, 1.0);
 
     private async Task Hop(Session s, string mode)
     {

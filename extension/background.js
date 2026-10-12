@@ -1,4 +1,4 @@
-importScripts('lib.js');
+importScripts('lib.js', 'companion-link.js');
 
 const TICK = 'bloxboard-tick';
 
@@ -24,6 +24,8 @@ async function ensureSetup() {
 
 chrome.runtime.onInstalled.addListener(ensureSetup);
 chrome.runtime.onStartup.addListener(ensureSetup);
+chrome.runtime.onStartup.addListener(() => connectCompanion(true));
+connectCompanion(true);
 
 chrome.action.onClicked.addListener(() => openDashboard());
 
@@ -58,6 +60,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 async function tick() {
+  connectCompanion().catch(() => {});
   const settings = await BB.settings();
   let me;
   try {
@@ -309,6 +312,10 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     values: () => BB.values(),
     playerValue: () => BB.playerValue(msg.userId),
     openDashboard: () => openDashboard(msg.hash),
+    // Windows companion link (dashboard Settings) and a nudge from roblox.com pages to reconnect.
+    companionConnect: async () => ({ connected: await connectCompanion(true) }),
+    companionDisconnect: async () => { try { companionWs?.close(); } catch {} companionWs = null; await BB.set('companionStatus', { connected: false, at: Date.now() }); return { ok: true }; },
+    companionWake: async () => { connectCompanion().catch(() => {}); return {}; },
     regions: async () => {
       if (!(await BB.settings()).regionLookup) return {};
       const list = await BB.pool(msg.gameIds, 3, id => serverRegion(msg.placeId, id));

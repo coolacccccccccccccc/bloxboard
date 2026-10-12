@@ -113,5 +113,124 @@ catch (Exception e)
     Check(false, $"api: {e.Message}");
 }
 
+// Server start time ("Server Prefix") gives uptime.
+var prefix = "2026-10-11T18:00:05.000Z,5.5,1a2b,6 [FLog::Output] Server Prefix: 0.700.0.7000_20261011T120000Z_RCC_ab12c";
+Check(LogParser.Parse(prefix) is ServerStartEvent { StartedUtc: var su } && su == new DateTime(2026, 10, 11, 12, 0, 0, DateTimeKind.Utc), "server prefix line gives server start time");
+
+// Old log import: two sessions in one file, the second ends with the file.
+var oldLog = new[]
+{
+    lines[0], lines[1], lines[2], lines[3], lines[4],
+    "2026-10-11T18:30:00.000Z,6.0,1a2b,6 [FLog::Network] Time to disconnect replication data: 0.1",
+    "2026-10-11T19:00:00.000Z,7.0,1a2b,6 [FLog::Output] ! Joining game '11111111-2222-3333-4444-555555555555' place 1 at 1.2.3.4",
+    "2026-10-11T19:45:00.000Z,8.0,1a2b,6 [FLog::Output] something at the end",
+};
+var imported = LogImporter.Read(oldLog);
+Check(imported.Count == 2 && Math.Abs(imported[0].Minutes - 30) < 0.1 && Math.Abs(imported[1].Minutes - 45) < 0.1, $"import: 2 sessions, 30 + 45 min ({string.Join(", ", imported.Select(x => x.Minutes))})");
+
+// Stats: minutes per day, split over midnight, streaks.
+var sdir = Path.Combine(Path.GetTempPath(), "bbx-sess-" + Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(sdir);
+var ss = new SessionStore(sdir);
+var today = DateTime.Today;
+ss.Upsert(new PlaySession { PlaceId = 1, UniverseId = 10, JobId = "a", Start = today.AddDays(-1).AddHours(23), End = today.AddHours(1), GameName = "A" });
+ss.Upsert(new PlaySession { PlaceId = 2, UniverseId = 20, JobId = "b", Start = today.AddDays(-2).AddHours(12), End = today.AddDays(-2).AddHours(13), GameName = "B" });
+Check(!ss.Upsert(new PlaySession { PlaceId = 1, UniverseId = 10, JobId = "a", Start = today.AddDays(-1).AddHours(23), End = today.AddHours(2) }), "sessions: same server+start updates instead of duplicating");
+var per = SessionStore.PerDay(ss.All());
+Check(Math.Abs(per[SessionStore.DayKey(today)][10] - 120) < 0.1 && Math.Abs(per[SessionStore.DayKey(today.AddDays(-1))][10] - 60) < 0.1, "stats: session over midnight split per day");
+var statsJson = System.Text.Json.JsonSerializer.Serialize(SessionStore.Stats(ss.All(), DateTime.Now, 7));
+Check(statsJson.Contains("\"streak\":3") && statsJson.Contains("\"name\":\"A\""), $"stats: 3-day streak and top game ({statsJson[..Math.Min(200, statsJson.Length)]}…)");
+ss.Save();
+Check(new SessionStore(sdir).All().Count == 2, "sessions saved and loaded");
+
+// Local server + browser link
+var hostDir = Path.Combine(Path.GetTempPath(), "bbx-host-" + Guid.NewGuid().ToString("N"));
+var logDir2 = Path.Combine(hostDir, "logs");
+Directory.CreateDirectory(logDir2);
+var opened = new List<string>();
+var svc = new CompanionService(new FakeHost(opened), new Store(Path.Combine(hostDir, "data")), logDir2);
+svc.Start(new[] { 0 }); // any free port
+var http = new HttpClient { BaseAddress = new Uri(svc.Server.BaseUrl) };
+async Task<(int, string)> Req(HttpMethod m, string path, string? body = null, bool token = true, string? origin = null)
+{
+    var r = new HttpRequestMessage(m, path);
+    if (token) r.Headers.Add("X-Bbx-Token", svc.Server.Token);
+    if (origin is not null) r.Headers.Add("Origin", origin);
+    if (body is not null) r.Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
+    var res = await http.SendAsync(r);
+    return ((int)res.StatusCode, await res.Content.ReadAsStringAsync());
+}
+var (st1, idx) = await Req(HttpMethod.Get, "/", token: false);
+Check(st1 == 200 && idx.Contains("app.js"), "server: panel page served");
+Check((await Req(HttpMethod.Get, "/api/state", token: false)).Item1 == 403, "server: API without token refused");
+Check((await Req(HttpMethod.Get, "/api/state", origin: "https://evil.example")).Item1 == 403, "server: API from another site refused even with token");
+var (st2, stateJson) = await Req(HttpMethod.Get, "/api/state");
+Check(st2 == 200 && stateJson.Contains("\"connected\":false"), "server: state with token");
+var badHost = new HttpRequestMessage(HttpMethod.Get, "/api/state");
+badHost.Headers.Host = "attacker.example";
+badHost.Headers.Add("X-Bbx-Token", svc.Server.Token);
+Check((int)(await http.SendAsync(badHost)).StatusCode == 421, "server: wrong Host header refused (DNS rebinding)");
+Check((await Req(HttpMethod.Post, "/api/open", "{\"url\":\"https://evil.example/x\"}")).Item1 == 400, "server: open refuses other sites");
+Check((await Req(HttpMethod.Post, "/api/open", "{\"placeId\":1,\"jobId\":\"not-a-guid\"}")).Item1 == 400, "server: open refuses bad server ids");
+await Req(HttpMethod.Post, "/api/open", $"{{\"placeId\":14823220100,\"jobId\":\"{Job}\"}}");
+Check(opened.LastOrDefault() == RobloxApi.JoinUrl(14823220100, Job), "server: join opens a roblox:// link");
+Check((await Req(HttpMethod.Post, "/api/regions", "{\"placeId\":1,\"serverIds\":[]}")).Item1 == 409, "server: regions need the browser link (409)");
+
+// A website can't link (origin check); an extension can.
+var wsUrl = new Uri($"ws://127.0.0.1:{svc.Server.Port}/bridge");
+var evil = new System.Net.WebSockets.ClientWebSocket();
+evil.Options.SetRequestHeader("Origin", "https://evil.example");
+var evilOk = true;
+try { await evil.ConnectAsync(wsUrl, CancellationToken.None); } catch { evilOk = false; }
+Check(!evilOk, "bridge: websites can't connect");
+
+var ext = new System.Net.WebSockets.ClientWebSocket();
+ext.Options.SetRequestHeader("Origin", "chrome-extension://mmophpckpdilgbnghpaafdjpicefopee");
+await ext.ConnectAsync(wsUrl, CancellationToken.None);
+async Task SendJ(object o) => await ext.SendAsync(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(o), System.Net.WebSockets.WebSocketMessageType.Text, true, CancellationToken.None);
+async Task<System.Text.Json.JsonElement> RecvJ()
+{
+    var buf = new byte[65536];
+    var r = await ext.ReceiveAsync(buf, CancellationToken.None);
+    return System.Text.Json.JsonDocument.Parse(buf.AsMemory(0, r.Count)).RootElement.Clone();
+}
+await SendJ(new { type = "hello", version = "0.8.0", userId = 1001, userName = "enes_dev" });
+await Task.Delay(200);
+Check(svc.Bridge.Connected && svc.Bridge.UserName == "enes_dev", "bridge: extension linked with hello");
+// Linking pushes playtime first.
+var push = await RecvJ();
+Check(push.GetProperty("type").GetString() == "playtime", "bridge: playtime pushed on link");
+await SendJ(new { id = push.GetProperty("id").GetString(), data = new { changed = 0 } });
+// Panel asks for regions -> the extension gets the request and answers.
+var regionTask = Req(HttpMethod.Post, "/api/regions", $"{{\"placeId\":1,\"serverIds\":[\"{Job}\"]}}");
+var regionReq = await RecvJ();
+Check(regionReq.GetProperty("type").GetString() == "regions", "bridge: regions request forwarded to the extension");
+await SendJ(new Dictionary<string, object> { ["id"] = regionReq.GetProperty("id").GetString()!, ["data"] = new Dictionary<string, object> { [Job] = new { city = "Amsterdam", cc = "NL" } } });
+var (st3, regionBody) = await regionTask;
+Check(st3 == 200 && regionBody.Contains("Amsterdam"), "bridge: region answer reaches the panel");
+// Find: progress then result.
+var (st4, findStart) = await Req(HttpMethod.Post, "/api/find", "{\"placeId\":1,\"query\":\"Builderman\",\"mode\":\"username\"}");
+var findJobId = System.Text.Json.JsonDocument.Parse(findStart).RootElement.GetProperty("job").GetString();
+var findReq = await RecvJ();
+var fid = findReq.GetProperty("id").GetString()!;
+await SendJ(new { id = fid, progress = new { text = "Pass 1/8", pct = 40 } });
+await Task.Delay(150);
+var (_, mid) = await Req(HttpMethod.Get, $"/api/find?job={findJobId}");
+Check(mid.Contains("Pass 1/8") && mid.Contains("\"done\":false"), "bridge: find progress visible to the panel");
+await SendJ(new { id = fid, data = new { found = new[] { new { title = "Found @Builderman", gameId = Job, placeId = 1 } }, text = "Found." } });
+await Task.Delay(150);
+var (_, end) = await Req(HttpMethod.Get, $"/api/find?job={findJobId}");
+Check(end.Contains("\"done\":true") && end.Contains("Found @Builderman"), "bridge: find result reaches the panel");
+await ext.CloseAsync(System.Net.WebSockets.WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
+await Task.Delay(200);
+Check(!svc.Bridge.Connected, "bridge: unlink detected");
+svc.Dispose();
+
 Console.WriteLine(failed == 0 ? "ALL PASSED" : $"{failed} FAILED");
 return failed == 0 ? 0 : 1;
+
+sealed class FakeHost(List<string> opened) : ICompanionHost
+{
+    public void OpenUrl(string url) { lock (opened) opened.Add(url); }
+    public void SettingsChanged() { }
+}

@@ -29,16 +29,16 @@
       <div>
         <div class="eyebrow">Windows app · v{{COMP_VERSION}}</div>
         <h1>Companion</h1>
-        <p class="lead">A small window next to Roblox with your server's location, an invite link, server hop and rejoin. It starts and closes together with Roblox through Fishstrap or Bloxstrap.</p>
+        <p class="lead">Bloxboard for the Roblox app. Press <strong>Ctrl+Shift+B</strong> in game for a panel with your server, a server browser with regions, the player finder, friends, games and playtime. It starts and closes together with Roblox through Fishstrap or Bloxstrap.</p>
         <div class="actions">
-          <a class="btn" href="download/BloxboardCompanion.exe">Download for Windows</a>
+          <a class="btn" href="download/{{COMP_FILE}}">Download for Windows</a>
           <a class="btn ghost" href="#setup">Set up with Fishstrap</a>
         </div>
         <p class="meta">{{COMP_MB}} MB · Windows 10 and 11 · nothing to install</p>
       </div>
       <figure class="shot" style="margin:0">
-        <img src="img/companion.png" alt="The companion window showing SCP Architect X, a Frankfurt server and buttons for invite, server hop, rejoin and Bloxboard">
-        <figcaption>The companion window while you're in a server</figcaption>
+        <img src="img/companion-now.png" alt="The companion panel: Natural Disaster Survival, a Frankfurt server up for 3 hours, invite, server hop and rejoin buttons, game stats and this server's players, ping and FPS" width="1120" height="760">
+        <figcaption>The panel while you're in a server</figcaption>
       </figure>
     </section>
 
@@ -49,7 +49,7 @@
         <article class="feature"><h3>Only reads a log file</h3><p>Roblox writes a plain text log to <code>%LOCALAPPDATA%\Roblox\logs</code> on every PC. The companion reads it, just like Fishstrap and Bloxstrap do to show your server location.</p></article>
         <article class="feature"><h3>Its own window</h3><p>It's a separate window that floats on top. It doesn't draw inside Roblox, read Roblox's memory or attach to its process.</p></article>
         <article class="feature"><h3>Official join links</h3><p>Rejoin and server hop use the same <code>roblox://</code> links as the Join buttons on roblox.com.</p></article>
-        <article class="feature"><h3>No login, no cookies</h3><p>It only uses Roblox's public website data (game name, server list). It never reads your account or browser.</p></article>
+        <article class="feature"><h3>No login, no cookies</h3><p>It uses Roblox's public website data. For things that need a login (regions, friends online, finder) it asks the Bloxboard extension in your browser, so it never sees your account.</p></article>
       </div>
     </section>
 
@@ -63,19 +63,37 @@
         <li>Turn on <strong>Auto close when Roblox closes</strong>, save, and launch Roblox.</li>
       </ol>
       <div class="note" style="margin-top:18px"><p><strong>Windows says "Windows protected your PC"?</strong> That's SmartScreen being careful with new apps that aren't signed by a big company. Click <strong>More info</strong> → <strong>Run anyway</strong>. You only have to do this once.</p></div>
-      <p class="meta">No Fishstrap? Just open the .exe yourself: it waits in the tray until you join a game.</p>
+      <p class="meta">No Fishstrap? Just open the .exe yourself: the panel opens and it waits in the tray. Opening it again brings the panel back.</p>
+    </section>
+
+    <section class="block" id="link">
+      <h2>Link your browser (optional)</h2>
+      <p class="sub">Server regions, friends online and the player finder need a Roblox login. The companion borrows the one in your browser through the Bloxboard extension, over your own PC only (127.0.0.1).</p>
+      <ol class="steps">
+        <li>Install the <a href="./#install">Bloxboard extension</a> 0.8 or newer and log in on roblox.com.</li>
+        <li>Click the Bloxboard icon → <strong>Settings</strong> → <strong>Windows companion</strong> → <strong>Link</strong>, and allow it.</li>
+        <li>Keep the browser open (minimized is fine). The panel shows "Browser linked" in the corner. Your companion playtime also shows up in the dashboard.</li>
+      </ol>
     </section>
 
     <section class="block">
       <h2>What it does</h2>
       <div class="features">
-        <article class="feature"><span class="where">Overlay</span><h3>Your server at a glance</h3><p>Game, server location, how long you've been there and how many people are playing.</p></article>
-        <article class="feature"><span class="where">Overlay</span><h3>Copy invite</h3><p>A link that drops friends straight into your server.</p></article>
-        <article class="feature"><span class="where">Overlay</span><h3>Server hop</h3><p>Jump to the smallest server, a random one, or the busiest one that still has room.</p></article>
-        <article class="feature"><span class="where">Overlay</span><h3>Rejoin + Bloxboard</h3><p>Rejoin after a disconnect, or open the game in your browser with Bloxboard's player finder.</p></article>
-        <article class="feature"><span class="where">Tray</span><h3>Recent servers</h3><p>Every server you played in, with Rejoin and Copy invite.</p></article>
-        <article class="feature"><span class="where">Anywhere</span><h3>Ctrl+Shift+B</h3><p>Show or hide the window. Drag it anywhere; it remembers where you put it.</p></article>
+        <article class="feature"><span class="where">Panel</span><h3>Now playing</h3><p>Game, server location, time in server, how long the server has been up, its players, ping and FPS. Copy invite, server hop (smallest, best ping, busiest, random), rejoin, favorite and notes per game.</p></article>
+        <article class="feature"><span class="where">Panel</span><h3>Server browser</h3><p>Every public server with players, ping and FPS. Filter by size, ping and region, see which ones you visited and which ones your friends are in, and join any of them.</p></article>
+        <article class="feature"><span class="where">Panel · linked</span><h3>Player finder</h3><p>Find which server someone is in by username or display name, then join or copy a link.</p></article>
+        <article class="feature"><span class="where">Panel · linked</span><h3>Friends</h3><p>Who's in a game, online or in Studio, with Join buttons. Unlinked it still shows your friend list.</p></article>
+        <article class="feature"><span class="where">Panel</span><h3>Games</h3><p>Search Roblox games, keep favorites and jump back into what you played lately, straight into the app.</p></article>
+        <article class="feature"><span class="where">Panel</span><h3>Playtime</h3><p>Time per day, streaks, top games, when you play and recent servers. It reads Roblox's older logs too, so it starts with your last week of play.</p></article>
+        <article class="feature"><span class="where">Overlay</span><h3>Mini overlay</h3><p>The small box with your server and quick buttons. <strong>Ctrl+Shift+N</strong> shows or hides it.</p></article>
+        <article class="feature"><span class="where">Anywhere</span><h3>Hotkeys</h3><p><strong>Ctrl+Shift+B</strong> opens or closes the panel, <strong>Esc</strong> goes back to the game. The tray icon opens it too.</p></article>
       </div>
+      <div class="gallery" style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-top:22px">
+        <figure class="shot" style="margin:0"><img src="img/companion-servers.png" alt="Server browser with regions, ping, FPS and a friend's badge on your server" width="1120" height="760" loading="lazy"><figcaption>Servers with regions</figcaption></figure>
+        <figure class="shot" style="margin:0"><img src="img/companion-stats.png" alt="Playtime page with per-day bars, streak, top games and an hour heatmap" width="1120" height="760" loading="lazy"><figcaption>Playtime</figcaption></figure>
+        <figure class="shot" style="margin:0"><img src="img/companion-friends.png" alt="Friends page with friends in a game and Join buttons" width="1120" height="760" loading="lazy"><figcaption>Friends (linked)</figcaption></figure>
+      </div>
+      <p class="meta">Screens show sample friends and playtime.</p>
       <p class="meta">Settings, history and a small log live in <code>%APPDATA%\Bloxboard</code>. To remove it, delete the .exe and that folder.</p>
       <p class="meta">SHA-256: <code style="word-break:break-all">{{COMP_SHA}}</code></p>
     </section>

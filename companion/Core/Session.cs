@@ -10,6 +10,9 @@ public sealed class Session
     public DateTime? LeftAt { get; set; }
     public string GameName { get; set; } = "";
     public string Location { get; set; } = "";
+    public long UserId { get; set; }
+    /// <summary>When the Roblox server itself started (from the "Server Prefix" line), UTC.</summary>
+    public DateTime? ServerStartedUtc { get; set; }
 }
 
 /// <summary>Turns log events into "joined a server" / "left" with the details we know.</summary>
@@ -32,8 +35,14 @@ public sealed class SessionTracker
                 Current = new Session { PlaceId = j.PlaceId, JobId = j.JobId, ServerAddress = j.MachineAddress, JoinedAt = now };
                 Joined?.Invoke(Current);
                 break;
-            case UniverseEvent u when Current is not null && Current.UniverseId != u.UniverseId:
+            case UniverseEvent u when Current is not null:
+                Current.UserId = u.UserId;
+                if (Current.UniverseId == u.UniverseId) break;
                 Current.UniverseId = u.UniverseId;
+                Updated?.Invoke(Current);
+                break;
+            case ServerStartEvent st when Current is not null:
+                Current.ServerStartedUtc = st.StartedUtc;
                 Updated?.Invoke(Current);
                 break;
             case UdmuxEvent x when Current is not null && Current.ServerAddress != x.Address:

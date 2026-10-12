@@ -92,6 +92,7 @@ var BB = (() => {
     gameCardPlaytime: true,
     notifyGameUpdates: true,
     theme: '',
+    companionLink: false,
   };
 
   async function get(key, fallback) {

@@ -10,6 +10,7 @@ public sealed record UdmuxEvent(string Address) : LogEvent;
 public sealed record JoinedEvent(string ServerAddress) : LogEvent;
 public sealed record DisconnectedEvent : LogEvent;
 public sealed record LeftToAppEvent : LogEvent;
+public sealed record ServerStartEvent(DateTime StartedUtc) : LogEvent;
 
 /// <summary>
 /// Reads the lines Roblox writes to %LOCALAPPDATA%\Roblox\logs. These are plain text files
@@ -25,6 +26,9 @@ public static partial class LogParser
 
     [GeneratedRegex(@"UDMUX Address = ([0-9\.]+), Port = [0-9]+")]
     private static partial Regex Udmux();
+
+    [GeneratedRegex(@"Server Prefix:.+_(\d{8}T\d{6}Z)_RCC_[0-9a-z]+")]
+    private static partial Regex ServerPrefix();
 
     [GeneratedRegex(@"serverId: ([0-9\.]+)\|[0-9]+")]
     private static partial Regex Joined();
@@ -65,6 +69,13 @@ public static partial class LogParser
         {
             var m = Joined().Match(msg);
             return new JoinedEvent(m.Success ? m.Groups[1].Value : "");
+        }
+        if (msg.StartsWith("[FLog::Output] Server Prefix: "))
+        {
+            var m = ServerPrefix().Match(msg);
+            return m.Success && DateTime.TryParseExact(m.Groups[1].Value, "yyyyMMdd'T'HHmmss'Z'", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var t)
+                ? new ServerStartEvent(t) : null;
         }
         if (msg.StartsWith("[FLog::Network] Time to disconnect replication data:")) return new DisconnectedEvent();
         if (msg.StartsWith("[FLog::SingleSurfaceApp] leaveUGCGameInternal")) return new LeftToAppEvent();

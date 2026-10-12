@@ -17,7 +17,7 @@ public sealed class RobloxApi
     {
         _http = http ?? new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
         if (!_http.DefaultRequestHeaders.UserAgent.Any())
-            _http.DefaultRequestHeaders.UserAgent.ParseAdd("BloxboardCompanion/1.0");
+            _http.DefaultRequestHeaders.UserAgent.ParseAdd("BloxboardCompanion/2.0");
     }
 
     private async Task<JsonElement> Get(string url, CancellationToken ct)
@@ -25,6 +25,27 @@ public sealed class RobloxApi
         for (int attempt = 0; ; attempt++)
         {
             using var res = await _http.GetAsync(url, ct);
+            if ((int)res.StatusCode == 429 && attempt < 4)
+            {
+                // Roblox rate limits some endpoints (the server list especially): wait as told, or back off.
+                var wait = res.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(2 * (attempt + 1));
+                await Task.Delay(wait > TimeSpan.FromSeconds(10) ? TimeSpan.FromSeconds(10) : wait, ct);
+                continue;
+            }
+            if ((int)res.StatusCode == 429) throw new HttpRequestException("Roblox is rate limiting this right now. Try again in a few seconds.", null, res.StatusCode);
+            res.EnsureSuccessStatusCode();
+            return await res.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
+        }
+    }
+
+    /// <summary>GET any public Roblox endpoint (callers build the URL from fixed templates).</summary>
+    public Task<JsonElement> GetJson(string url, CancellationToken ct = default) => Get(url, ct);
+
+    public async Task<JsonElement> PostJson(string url, object body, CancellationToken ct = default)
+    {
+        for (int attempt = 0; ; attempt++)
+        {
+            using var res = await _http.PostAsJsonAsync(url, body, ct);
             if ((int)res.StatusCode == 429 && attempt < 4)
             {
                 await Task.Delay(1500 * (attempt + 1), ct);

@@ -670,7 +670,40 @@ pages.settings = async (root) => {
   const playtime = await BB.get('playtime', {});
   const days = Object.keys(playtime).length;
 
+  // Windows companion link
+  const compStatus = el('div', { class: 'row wrap', style: { gap: '8px' } });
+  const compBtn = el('button', { class: 'btn', type: 'button' });
+  async function drawCompanion() {
+    const st = await BB.get('companionStatus', null);
+    const on = (await BB.settings()).companionLink;
+    compStatus.replaceChildren(
+      el('span', { class: `badge ${st?.connected ? 'good' : on ? 'warn' : ''}`, text: st?.connected ? 'Linked' : on ? 'Waiting for the companion' : 'Off' }),
+      el('span', { class: 'small muted', text: st?.connected ? 'The companion can use regions, friends online and the player finder.' : on ? 'Start Bloxboard Companion on your PC; it links within a few seconds.' : '' }));
+    compBtn.textContent = on ? 'Unlink' : 'Link';
+    compBtn.className = on ? 'btn ghost' : 'btn';
+  }
+  compBtn.onclick = async () => {
+    const cur = await BB.settings();
+    if (!cur.companionLink) {
+      const ok = await chrome.permissions.request({ origins: ['http://127.0.0.1/*', 'ws://127.0.0.1/*'] }).catch(() => false);
+      if (!ok) return;
+      await BB.set('settings', { ...cur, companionLink: true });
+      await chrome.runtime.sendMessage({ type: 'companionConnect' }).catch(() => {});
+    } else {
+      await BB.set('settings', { ...cur, companionLink: false });
+      await chrome.runtime.sendMessage({ type: 'companionDisconnect' }).catch(() => {});
+    }
+    drawCompanion();
+  };
+  const compListener = (changes) => { if (changes.companionStatus) drawCompanion(); };
+  chrome.storage.onChanged.addListener(compListener);
+  drawCompanion();
+
   root.append(el('div', { class: 'grid cols-2' },
+    card('Windows companion',
+      el('p', { class: 'small muted', text: 'Bloxboard Companion runs next to the Roblox app on Windows. Linking lets it use your login here for server regions, friends online and the player finder, and adds its playtime to this dashboard. It only talks to 127.0.0.1 (your own PC).' }),
+      el('div', { class: 'row wrap', style: { marginTop: '12px', justifyContent: 'space-between' } }, compStatus, compBtn),
+      el('p', { class: 'small', style: { marginTop: '10px' } }, el('a', { href: 'https://bloxboard.enesserver.dev/companion.html', target: '_blank', rel: 'noopener', text: 'Get the companion' }))),
     card('Features',
       toggle('trackPlaytime', 'Track playtime', 'Checks your status once a minute while the browser is open.'),
       toggle('notifyTrades', 'Trade notifications', 'Desktop notification when a new trade request arrives.'),

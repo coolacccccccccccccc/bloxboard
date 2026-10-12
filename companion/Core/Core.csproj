@@ -6,4 +6,8 @@
     <RootNamespace>Bloxboard.Companion</RootNamespace>
     <AssemblyName>Bloxboard.Companion.Core</AssemblyName>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- The panel UI, served by LocalServer at http://127.0.0.1:47823/ -->
+    <EmbeddedResource Include="../ui/**/*" LogicalName="ui/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>

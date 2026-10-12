@@ -1,5 +1,14 @@
 ## Changelog
 
+### Companion 2.0.0 + extension 0.8.0 · 12 October 2026
+
+- Companion: new panel (Ctrl+Shift+B, or the tray icon) with the extension's features for the Roblox app: Now playing (server location, uptime, players/ping/FPS, invite, server hop by size or ping, rejoin, favorite, notes), a server browser with filters, regions and friends' servers, player finder, friends with Join, game search and favorites, and playtime stats with streaks, top games and an hour heatmap.
+- Companion: playtime counts the older Roblox logs too, so stats start with your last week of play.
+- Companion: link with the browser extension (Settings → Windows companion → Link) for regions, friends online and the finder. The companion still never reads your login; the extension does the logged-in requests, over 127.0.0.1 only.
+- Companion: Ctrl+Shift+N shows or hides the mini overlay, which got a Panel button. Opening the .exe again brings the panel back.
+- Extension: companion playtime shows up in the dashboard.
+- Site: install guide for Brave.
+
 ### Companion 1.0.1 · 12 October 2026
 
 - Fix: the window could stay on "Waiting for Roblox…" in a game. It now shows the game as soon as Roblox starts joining, and picks Roblox's newest log the same way Fishstrap does.
